@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Rust
+/target
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS
+*.un~
