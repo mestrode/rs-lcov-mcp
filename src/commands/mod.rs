@@ -9,6 +9,7 @@ pub mod clippy;
 pub mod coverage;
 pub mod fmt;
 pub mod llvm_cov;
+pub mod test;
 pub mod utils;
 
 /// Re-export commonly used types from submodules
@@ -20,4 +21,5 @@ pub use coverage::handler::*;
 pub use coverage::parser::*;
 pub use fmt::{FmtParams, FmtResult, create_schema as create_fmt_schema, handle_fmt};
 pub use llvm_cov::handler::*;
+pub use test::{TestParams, TestResult, create_schema as create_test_schema, handle_test};
 pub use utils::*;
