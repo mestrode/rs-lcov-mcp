@@ -7,29 +7,52 @@
 //! # Usage
 //!
 //! The server can be run as a standalone process and communicates via stdio.
-//! It provides two main tools:
-//! - `execute_coverage`: Get code coverage summary for a Rust project
-//! - `get_file_coverage`: Get detailed branch coverage per file
+//! It provides tools for:
+//! - Code coverage analysis (get_coverage_summary, get_files_coverage, get_file_line_coverage)
 
-pub mod coverage;
-pub mod error;
-pub mod mcp;
-pub mod model;
+use rmcp::ServiceExt;
+use rmcp::transport::stdio;
+use rs_lcov_mcp::mcp::CoverageServer;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Create the server handler
+    let server = CoverageServer::new();
+
+    // Serve using stdio transport and wait for the service to complete
+    let service = server.serve(stdio()).await?;
+    service.waiting().await?;
+
+    Ok(())
+}
 
 #[cfg(test)]
+#[allow(unused_imports)]
 mod tests {
     use super::*;
     use rmcp::ServerHandler;
+    use rs_lcov_mcp::{
+        coverage::{
+            build_llvm_cov_command, create_execute_schema, create_file_schema, create_line_schema,
+            execute_llvm_cov, handle_execute_coverage, handle_get_file_coverage,
+            handle_get_line_coverage, parse_coverage_summary, parse_file_coverage,
+            parse_line_coverage, validate_execute_params, validate_file_params,
+            validate_line_params,
+        },
+        error::CoverageError,
+        model::*,
+    };
+    use serde_json::json;
 
     #[test]
     fn test_modules_are_accessible() {
         // Verify that all modules can be accessed
-        let _coverage = coverage::parse_coverage_summary;
-        let _error = error::CoverageError::Validation("test".to_string());
-        let _mcp = mcp::CoverageServer::new();
-        let _model = model::CoverageSummary {
+        let _coverage = parse_coverage_summary;
+        let _error = CoverageError::Validation("test".to_string());
+        let _server = CoverageServer::new();
+        let _model = CoverageSummary {
             success: true,
-            coverage: model::CoverageMetrics {
+            coverage: CoverageMetrics {
                 percentage: 0.0,
                 lines_covered: 0,
                 total_lines: 0,
@@ -45,7 +68,7 @@ mod tests {
     fn test_server_creation_in_main() {
         // Verify that we can create a server from main module
         use rmcp::ServerHandler;
-        let server = mcp::CoverageServer::new();
+        let server = CoverageServer::new();
         let info = server.get_info();
         assert_eq!(info.server_info.name, "rs-lcov-mcp");
     }
@@ -55,7 +78,7 @@ mod tests {
     #[test]
     fn test_full_module_integration() {
         // Test that all modules work together
-        use crate::model::*;
+        use rs_lcov_mcp::model::*;
 
         // Test that we can create instances of all model types
         let metrics = CoverageMetrics {
@@ -79,7 +102,7 @@ mod tests {
     #[test]
     fn test_error_types_accessible() {
         // Verify all error types are accessible from main
-        use crate::error::CoverageError;
+        use rs_lcov_mcp::error::CoverageError;
 
         let validation_err = CoverageError::Validation("test validation".to_string());
         let execution_err = CoverageError::ExecutionFailed("test execution".to_string());
@@ -93,13 +116,7 @@ mod tests {
     #[test]
     fn test_coverage_functions_accessible() {
         // Verify all coverage functions are accessible
-        use crate::coverage::{
-            build_llvm_cov_command, create_execute_schema, create_file_schema, create_line_schema,
-            execute_llvm_cov, handle_execute_coverage, handle_get_file_coverage,
-            handle_get_line_coverage, parse_coverage_summary, parse_file_coverage,
-            parse_line_coverage, validate_execute_params, validate_file_params,
-            validate_line_params,
-        };
+        use rs_lcov_mcp::coverage::*;
 
         // These should compile without errors
         let _parse_summary = parse_coverage_summary;
@@ -121,8 +138,8 @@ mod tests {
     #[test]
     fn test_mcp_module_accessible() {
         // Verify MCP module functions are accessible
-        use crate::mcp::CoverageServer;
         use rmcp::ServerHandler;
+        use rs_lcov_mcp::mcp::CoverageServer;
 
         let server = CoverageServer::new();
         let info = server.get_info();
@@ -134,7 +151,7 @@ mod tests {
     #[test]
     fn test_model_types_accessible() {
         // Verify all model types are accessible
-        use crate::model::*;
+        use rs_lcov_mcp::model::*;
 
         let _metrics = CoverageMetrics {
             percentage: 50.0,
@@ -250,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_server_version() {
-        let server = mcp::CoverageServer::new();
+        let server = CoverageServer::new();
         let info = server.get_info();
 
         assert_eq!(info.server_info.name, "rs-lcov-mcp");
@@ -259,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_protocol_version() {
-        let server = mcp::CoverageServer::new();
+        let server = CoverageServer::new();
         let info = server.get_info();
 
         assert_eq!(info.protocol_version, rmcp::model::ProtocolVersion::LATEST);
@@ -269,8 +286,8 @@ mod tests {
 
     #[test]
     fn test_multiple_server_instances_consistent() {
-        let server1 = mcp::CoverageServer::new();
-        let server2 = mcp::CoverageServer::new();
+        let server1 = CoverageServer::new();
+        let server2 = CoverageServer::new();
 
         let info1 = server1.get_info();
         let info2 = server2.get_info();
@@ -282,7 +299,7 @@ mod tests {
 
     #[test]
     fn test_server_info_immutable() {
-        let server = mcp::CoverageServer::new();
+        let server = CoverageServer::new();
 
         let info1 = server.get_info();
         let info2 = server.get_info();
@@ -296,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_error_conversions() {
-        use crate::error::CoverageError;
+        use rs_lcov_mcp::error::CoverageError;
         use std::io;
 
         // Test From implementations
@@ -317,7 +334,7 @@ mod tests {
 
     #[test]
     fn test_model_serialization_in_main() {
-        use crate::model::*;
+        use rs_lcov_mcp::model::*;
 
         let metrics = CoverageMetrics {
             percentage: 75.5,
@@ -336,7 +353,7 @@ mod tests {
 
     #[test]
     fn test_model_deserialization_in_main() {
-        use crate::model::*;
+        use rs_lcov_mcp::model::*;
 
         let json_str = r#"{
             "percentage": 75.5,
@@ -356,8 +373,8 @@ mod tests {
 
     #[test]
     fn test_parameter_validation_in_main() {
-        use crate::coverage::*;
-        use crate::model::*;
+        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::model::*;
 
         // Test valid parameters
         let exec_params = ExecuteCoverageParams {
@@ -387,7 +404,7 @@ mod tests {
 
     #[test]
     fn test_schema_creation_in_main() {
-        use crate::coverage::*;
+        use rs_lcov_mcp::coverage::*;
 
         let execute_schema = create_execute_schema();
         let file_schema = create_file_schema();
@@ -406,7 +423,7 @@ mod tests {
 
     #[test]
     fn test_command_building_in_main() {
-        use crate::coverage::build_llvm_cov_command;
+        use rs_lcov_mcp::coverage::build_llvm_cov_command;
 
         let cmd = build_llvm_cov_command(false, None);
         let cmd_str = format!("{:?}", cmd);
@@ -428,7 +445,7 @@ mod tests {
 
     #[test]
     fn test_coverage_parsing_in_main() {
-        use crate::coverage::parse_coverage_summary;
+        use rs_lcov_mcp::coverage::parse_coverage_summary;
         use serde_json::json;
 
         let json_output = json!({
@@ -458,7 +475,7 @@ mod tests {
 
     #[test]
     fn test_file_coverage_parsing_in_main() {
-        use crate::coverage::parse_file_coverage;
+        use rs_lcov_mcp::coverage::parse_file_coverage;
         use serde_json::json;
 
         let json_output = json!({
@@ -491,7 +508,7 @@ mod tests {
 
     #[test]
     fn test_line_coverage_parsing_in_main() {
-        use crate::coverage::parse_line_coverage;
+        use rs_lcov_mcp::coverage::parse_line_coverage;
         use serde_json::json;
 
         let json_output = json!({
@@ -527,7 +544,7 @@ mod tests {
 
     #[test]
     fn test_line_coverage_model_in_main() {
-        use crate::model::LineCoverage;
+        use rs_lcov_mcp::model::LineCoverage;
 
         let lines = vec![
             LineCoverage {
@@ -569,8 +586,8 @@ mod tests {
     async fn test_async_handlers_compilation() {
         // These tests verify that the async handlers compile and can be called
         // Note: We can't actually execute them without cargo-llvm-cov installed
-        use crate::coverage::*;
-        use crate::model::*;
+        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::model::*;
 
         // Test that we can create the parameters
         let exec_params = ExecuteCoverageParams {
@@ -603,7 +620,7 @@ mod tests {
 
     #[test]
     fn test_tool_schemas_in_main() {
-        use crate::coverage::*;
+        use rs_lcov_mcp::coverage::*;
 
         let execute_schema = create_execute_schema();
         let file_schema = create_file_schema();
@@ -645,8 +662,8 @@ mod tests {
     #[test]
     fn test_complete_workflow_structure() {
         // This test verifies that the complete workflow from parameters to results works
-        use crate::coverage::*;
-        use crate::model::*;
+        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::model::*;
         use serde_json::json;
 
         // 1. Create parameters
@@ -723,8 +740,8 @@ mod tests {
 
     #[test]
     fn test_boundary_values_in_main() {
-        use crate::coverage::*;
-        use crate::model::*;
+        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::model::*;
 
         // Test zero values
         let metrics_zero = CoverageMetrics {
@@ -782,8 +799,8 @@ mod tests {
 
     #[test]
     fn test_error_cases_in_main() {
-        use crate::coverage::*;
-        use crate::model::*;
+        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::model::*;
 
         // Test invalid threshold
         let exec_params_invalid = ExecuteCoverageParams {
@@ -851,7 +868,7 @@ mod tests {
 
     #[test]
     fn test_result_types_in_main() {
-        use crate::model::*;
+        use rs_lcov_mcp::model::*;
 
         // Test successful results
         let success_summary = CoverageSummary {
@@ -909,7 +926,7 @@ mod tests {
 
     #[test]
     fn test_clone_and_debug_in_main() {
-        use crate::model::*;
+        use rs_lcov_mcp::model::*;
 
         // Test cloning
         let metrics = CoverageMetrics {
@@ -951,11 +968,11 @@ mod tests {
     #[test]
     fn test_comprehensive_integration() {
         // This test exercises the entire codebase to ensure all parts work together
-        use crate::coverage::*;
-        use crate::error::*;
-        use crate::mcp::*;
-        use crate::model::*;
         use rmcp::ServerHandler;
+        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::error::*;
+        use rs_lcov_mcp::mcp::*;
+        use rs_lcov_mcp::model::*;
 
         // 1. Test error handling
         let validation_err = CoverageError::Validation("test".to_string());
@@ -1057,20 +1074,4 @@ mod tests {
         // If we got here, all tests passed!
         assert!(true);
     }
-}
-
-use mcp::CoverageServer;
-use rmcp::ServiceExt;
-use rmcp::transport::stdio;
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    // Create the server handler
-    let server = CoverageServer::new();
-
-    // Serve using stdio transport and wait for the service to complete
-    let service = server.serve(stdio()).await?;
-    service.waiting().await?;
-
-    Ok(())
 }

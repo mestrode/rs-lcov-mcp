@@ -30,6 +30,7 @@ impl Default for CoverageServer {
 }
 
 impl CoverageServer {
+    /// Creates a new instance of the coverage server.
     pub fn new() -> Self {
         Self
     }
