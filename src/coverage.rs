@@ -209,6 +209,7 @@ pub fn parse_file_coverage(output: &str) -> Result<Vec<FileCoverage>> {
 }
 
 /// Compress a sorted vector of LineCoverage into covered ranges and uncovered lines
+/// Ranges are sorted by hit count (ascending) so zero-hit and low-hit ranges appear first
 fn compress_line_coverage(lines: Vec<LineCoverage>) -> (Vec<CoveredRange>, Vec<u32>) {
     let mut covered_ranges: Vec<CoveredRange> = Vec::new();
     let mut uncovered_lines: Vec<u32> = Vec::new();
@@ -245,6 +246,9 @@ fn compress_line_coverage(lines: Vec<LineCoverage>) -> (Vec<CoveredRange>, Vec<u
             });
         }
     }
+
+    // Sort ranges by hit count (ascending) so zero-hit and low-hit ranges appear first
+    covered_ranges.sort_by(|a, b| a.hits.cmp(&b.hits));
 
     (covered_ranges, uncovered_lines)
 }
@@ -1519,18 +1523,21 @@ mod tests {
         assert_eq!(uncovered_lines.len(), 1);
         assert_eq!(uncovered_lines[0], 6);
 
-        // Check ranges
-        assert_eq!(covered_ranges[0].start, 1);
-        assert_eq!(covered_ranges[0].end, 3);
-        assert_eq!(covered_ranges[0].hits, 5);
+        // Check ranges - now sorted by hits (ascending)
+        // hits=2 comes first
+        assert_eq!(covered_ranges[0].start, 7);
+        assert_eq!(covered_ranges[0].end, 8);
+        assert_eq!(covered_ranges[0].hits, 2);
 
+        // hits=3 comes next
         assert_eq!(covered_ranges[1].start, 5);
         assert_eq!(covered_ranges[1].end, 5);
         assert_eq!(covered_ranges[1].hits, 3);
 
-        assert_eq!(covered_ranges[2].start, 7);
-        assert_eq!(covered_ranges[2].end, 8);
-        assert_eq!(covered_ranges[2].hits, 2);
+        // hits=5 comes last
+        assert_eq!(covered_ranges[2].start, 1);
+        assert_eq!(covered_ranges[2].end, 3);
+        assert_eq!(covered_ranges[2].hits, 5);
     }
 
     #[test]
