@@ -32,13 +32,13 @@ mod tests {
     use super::*;
     use rmcp::ServerHandler;
     use rs_lcov_mcp::{
-        coverage::{
-            build_llvm_cov_command, create_execute_schema, create_file_schema, create_line_schema,
-            execute_llvm_cov, handle_execute_coverage, handle_get_file_coverage,
-            handle_get_line_coverage, parse_coverage_summary, parse_file_coverage,
-            parse_line_coverage, validate_execute_params, validate_file_params,
-            validate_line_params,
+        commands::coverage::{
+            create_execute_schema, create_file_schema, create_line_schema, handle_execute_coverage,
+            handle_get_file_coverage, handle_get_line_coverage, parse_coverage_summary,
+            parse_file_coverage, parse_line_coverage, validate_execute_params,
+            validate_file_params, validate_line_params,
         },
+        commands::llvm_cov::build_llvm_cov_command,
         error::CoverageError,
         model::*,
     };
@@ -116,7 +116,8 @@ mod tests {
     #[test]
     fn test_coverage_functions_accessible() {
         // Verify all coverage functions are accessible
-        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::commands::coverage::*;
+        use rs_lcov_mcp::commands::llvm_cov::execute_llvm_cov;
 
         // These should compile without errors
         let _parse_summary = parse_coverage_summary;
@@ -373,7 +374,7 @@ mod tests {
 
     #[test]
     fn test_parameter_validation_in_main() {
-        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::commands::coverage::*;
         use rs_lcov_mcp::model::*;
 
         // Test valid parameters
@@ -404,7 +405,7 @@ mod tests {
 
     #[test]
     fn test_schema_creation_in_main() {
-        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::commands::coverage::*;
 
         let execute_schema = create_execute_schema();
         let file_schema = create_file_schema();
@@ -423,7 +424,7 @@ mod tests {
 
     #[test]
     fn test_command_building_in_main() {
-        use rs_lcov_mcp::coverage::build_llvm_cov_command;
+        use rs_lcov_mcp::commands::llvm_cov::build_llvm_cov_command;
 
         let cmd = build_llvm_cov_command(false, None);
         let cmd_str = format!("{:?}", cmd);
@@ -445,7 +446,7 @@ mod tests {
 
     #[test]
     fn test_coverage_parsing_in_main() {
-        use rs_lcov_mcp::coverage::parse_coverage_summary;
+        use rs_lcov_mcp::commands::coverage::parse_coverage_summary;
         use serde_json::json;
 
         let json_output = json!({
@@ -475,7 +476,7 @@ mod tests {
 
     #[test]
     fn test_file_coverage_parsing_in_main() {
-        use rs_lcov_mcp::coverage::parse_file_coverage;
+        use rs_lcov_mcp::commands::coverage::parse_file_coverage;
         use serde_json::json;
 
         let json_output = json!({
@@ -508,7 +509,7 @@ mod tests {
 
     #[test]
     fn test_line_coverage_parsing_in_main() {
-        use rs_lcov_mcp::coverage::parse_line_coverage;
+        use rs_lcov_mcp::commands::coverage::parse_line_coverage;
         use serde_json::json;
 
         let json_output = json!({
@@ -586,7 +587,7 @@ mod tests {
     async fn test_async_handlers_compilation() {
         // These tests verify that the async handlers compile and can be called
         // Note: We can't actually execute them without cargo-llvm-cov installed
-        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::commands::coverage::*;
         use rs_lcov_mcp::model::*;
 
         // Test that we can create the parameters
@@ -620,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_tool_schemas_in_main() {
-        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::commands::coverage::*;
 
         let execute_schema = create_execute_schema();
         let file_schema = create_file_schema();
@@ -662,7 +663,7 @@ mod tests {
     #[test]
     fn test_complete_workflow_structure() {
         // This test verifies that the complete workflow from parameters to results works
-        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::commands::coverage::*;
         use rs_lcov_mcp::model::*;
         use serde_json::json;
 
@@ -740,7 +741,7 @@ mod tests {
 
     #[test]
     fn test_boundary_values_in_main() {
-        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::commands::coverage::*;
         use rs_lcov_mcp::model::*;
 
         // Test zero values
@@ -799,7 +800,7 @@ mod tests {
 
     #[test]
     fn test_error_cases_in_main() {
-        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::commands::coverage::*;
         use rs_lcov_mcp::model::*;
 
         // Test invalid threshold
@@ -969,7 +970,7 @@ mod tests {
     fn test_comprehensive_integration() {
         // This test exercises the entire codebase to ensure all parts work together
         use rmcp::ServerHandler;
-        use rs_lcov_mcp::coverage::*;
+        use rs_lcov_mcp::commands::coverage::*;
         use rs_lcov_mcp::error::*;
         use rs_lcov_mcp::mcp::*;
         use rs_lcov_mcp::model::*;
