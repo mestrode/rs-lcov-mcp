@@ -102,15 +102,28 @@ pub struct LineCoverage {
     pub hits: u32,
 }
 
-/// Detailed line-by-line coverage for a file
+/// A range of consecutive covered lines with the same hit count
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CoveredRange {
+    /// Starting line number (inclusive)
+    pub start: u32,
+    /// Ending line number (inclusive)
+    pub end: u32,
+    /// Number of times these lines were hit
+    pub hits: u32,
+}
+
+/// Detailed line-by-line coverage for a file using hybrid format
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FileLineCoverage {
     /// File path
     pub path: String,
     /// Overall line coverage percentage for this file
     pub line_coverage: f64,
-    /// Line-by-line coverage details
-    pub lines: Vec<LineCoverage>,
+    /// Ranges of consecutive covered lines grouped by hit count
+    pub covered_ranges: Vec<CoveredRange>,
+    /// Individual line numbers that are NOT covered
+    pub uncovered_lines: Vec<u32>,
 }
 
 /// Result for get_line_coverage tool

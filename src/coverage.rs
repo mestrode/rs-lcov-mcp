@@ -5,7 +5,7 @@
 
 use crate::error::{CoverageError, Result};
 use crate::model::{
-    BranchInfo, CoverageMetrics, CoverageSummary, ExecuteCoverageParams, FileCoverage,
+    BranchInfo, CoverageMetrics, CoverageSummary, CoveredRange, ExecuteCoverageParams, FileCoverage,
     FileCoverageResult, FileLineCoverage, FunctionCoverage, GetFileLineCoverageParams,
     GetFilesCoverageParams, LineCoverage, LineCoverageResult, ThresholdResult,
 };
@@ -207,6 +207,47 @@ pub fn parse_file_coverage(output: &str) -> Result<Vec<FileCoverage>> {
     Ok(files)
 }
 
+/// Compress a sorted vector of LineCoverage into covered ranges and uncovered lines
+fn compress_line_coverage(lines: Vec<LineCoverage>) -> (Vec<CoveredRange>, Vec<u32>) {
+    let mut covered_ranges: Vec<CoveredRange> = Vec::new();
+    let mut uncovered_lines: Vec<u32> = Vec::new();
+
+    let mut iter = lines.into_iter().peekable();
+
+    while let Some(line) = iter.next() {
+        if !line.covered {
+            // Uncovered line - add to uncovered_lines
+            uncovered_lines.push(line.line);
+        } else {
+            // Covered line - start or continue a range
+            let start_line = line.line;
+            let current_hits = line.hits;
+            let mut end_line = line.line;
+
+            // Continue the range as long as the next line is consecutive and has the same hit count
+            while let Some(next_line) = iter.peek() {
+                if next_line.covered
+                    && next_line.line == end_line + 1
+                    && next_line.hits == current_hits
+                {
+                    end_line = next_line.line;
+                    iter.next(); // consume this line
+                } else {
+                    break;
+                }
+            }
+
+            covered_ranges.push(CoveredRange {
+                start: start_line,
+                end: end_line,
+                hits: current_hits,
+            });
+        }
+    }
+
+    (covered_ranges, uncovered_lines)
+}
+
 /// Parse line-by-line coverage from cargo llvm-cov JSON output for a specific file
 pub fn parse_line_coverage(output: &str, target_file: &str) -> Result<Option<FileLineCoverage>> {
     let json: Value = serde_json::from_str(output)?;
@@ -290,10 +331,14 @@ pub fn parse_line_coverage(output: &str, target_file: &str) -> Result<Option<Fil
                 let mut lines: Vec<LineCoverage> = lines_map.into_values().collect();
                 lines.sort_by_key(|a| a.line);
 
+                // Compress into ranges and uncovered lines
+                let (covered_ranges, uncovered_lines) = compress_line_coverage(lines);
+
                 return Ok(Some(FileLineCoverage {
                     path: path.to_string(),
                     line_coverage,
-                    lines,
+                    covered_ranges,
+                    uncovered_lines,
                 }));
             }
         }
@@ -887,13 +932,19 @@ mod tests {
         assert!(result.is_some());
         let file_coverage = result.unwrap();
         assert_eq!(file_coverage.path, "src/lib.rs");
-        assert_eq!(file_coverage.lines.len(), 2);
-
+        
+        // With hybrid format: lines 1 and 3 are covered (each with hits=1)
+        // Line 2 has hits=0 and covered=false, so it's not included at all
+        // Lines 1 and 3 are consecutive in terms of included lines, but not consecutive line numbers
+        // So we should have 2 separate ranges (1-1 and 3-3)
+        assert_eq!(file_coverage.covered_ranges.len(), 2);
+        assert_eq!(file_coverage.uncovered_lines.len(), 0);
+        
+        // Check covered ranges
         let covered_lines: Vec<u32> = file_coverage
-            .lines
+            .covered_ranges
             .iter()
-            .filter(|l| l.covered)
-            .map(|l| l.line)
+            .flat_map(|r| r.start..=r.end)
             .collect();
         assert!(covered_lines.contains(&1));
         assert!(covered_lines.contains(&3));
@@ -1123,7 +1174,8 @@ mod tests {
 
         assert!(result.is_some());
         let file_coverage = result.unwrap();
-        assert!(file_coverage.lines.is_empty());
+        assert!(file_coverage.covered_ranges.is_empty());
+        assert!(file_coverage.uncovered_lines.is_empty());
     }
 
     #[test]
@@ -1414,6 +1466,99 @@ mod tests {
 
         assert!(result.is_some());
         let file_coverage = result.unwrap();
-        assert!(file_coverage.lines.is_empty());
+        assert!(file_coverage.covered_ranges.is_empty());
+        assert!(file_coverage.uncovered_lines.is_empty());
+    }
+
+    #[test]
+    fn test_compress_line_coverage_basic() {
+        // Test compression of consecutive covered lines with same hits
+        let lines = vec![
+            LineCoverage { line: 1, covered: true, hits: 5 },
+            LineCoverage { line: 2, covered: true, hits: 5 },
+            LineCoverage { line: 3, covered: true, hits: 5 },
+            LineCoverage { line: 5, covered: true, hits: 3 },
+            LineCoverage { line: 6, covered: false, hits: 0 },
+            LineCoverage { line: 7, covered: true, hits: 2 },
+            LineCoverage { line: 8, covered: true, hits: 2 },
+        ];
+
+        let (covered_ranges, uncovered_lines) = compress_line_coverage(lines);
+
+        // Should have 3 covered ranges and 1 uncovered line
+        assert_eq!(covered_ranges.len(), 3);
+        assert_eq!(uncovered_lines.len(), 1);
+        assert_eq!(uncovered_lines[0], 6);
+
+        // Check ranges
+        assert_eq!(covered_ranges[0].start, 1);
+        assert_eq!(covered_ranges[0].end, 3);
+        assert_eq!(covered_ranges[0].hits, 5);
+
+        assert_eq!(covered_ranges[1].start, 5);
+        assert_eq!(covered_ranges[1].end, 5);
+        assert_eq!(covered_ranges[1].hits, 3);
+
+        assert_eq!(covered_ranges[2].start, 7);
+        assert_eq!(covered_ranges[2].end, 8);
+        assert_eq!(covered_ranges[2].hits, 2);
+    }
+
+    #[test]
+    fn test_compress_line_coverage_all_covered() {
+        // Test when all lines are covered with same hits
+        let lines = vec![
+            LineCoverage { line: 10, covered: true, hits: 1 },
+            LineCoverage { line: 11, covered: true, hits: 1 },
+            LineCoverage { line: 12, covered: true, hits: 1 },
+        ];
+
+        let (covered_ranges, uncovered_lines) = compress_line_coverage(lines);
+
+        assert_eq!(covered_ranges.len(), 1);
+        assert_eq!(uncovered_lines.len(), 0);
+        assert_eq!(covered_ranges[0].start, 10);
+        assert_eq!(covered_ranges[0].end, 12);
+        assert_eq!(covered_ranges[0].hits, 1);
+    }
+
+    #[test]
+    fn test_compress_line_coverage_all_uncovered() {
+        // Test when all lines are uncovered
+        let lines = vec![
+            LineCoverage { line: 1, covered: false, hits: 0 },
+            LineCoverage { line: 3, covered: false, hits: 0 },
+            LineCoverage { line: 5, covered: false, hits: 0 },
+        ];
+
+        let (covered_ranges, uncovered_lines) = compress_line_coverage(lines);
+
+        assert_eq!(covered_ranges.len(), 0);
+        assert_eq!(uncovered_lines.len(), 3);
+        assert_eq!(uncovered_lines, vec![1, 3, 5]);
+    }
+
+    #[test]
+    fn test_compress_line_coverage_mixed_hits() {
+        // Test compression stops when hit count changes
+        let lines = vec![
+            LineCoverage { line: 1, covered: true, hits: 1 },
+            LineCoverage { line: 2, covered: true, hits: 1 },
+            LineCoverage { line: 3, covered: true, hits: 2 },  // hits change
+            LineCoverage { line: 4, covered: true, hits: 2 },
+        ];
+
+        let (covered_ranges, uncovered_lines) = compress_line_coverage(lines);
+
+        assert_eq!(covered_ranges.len(), 2);
+        assert_eq!(uncovered_lines.len(), 0);
+        
+        assert_eq!(covered_ranges[0].start, 1);
+        assert_eq!(covered_ranges[0].end, 2);
+        assert_eq!(covered_ranges[0].hits, 1);
+
+        assert_eq!(covered_ranges[1].start, 3);
+        assert_eq!(covered_ranges[1].end, 4);
+        assert_eq!(covered_ranges[1].hits, 2);
     }
 }
