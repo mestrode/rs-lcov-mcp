@@ -248,7 +248,7 @@ fn compress_line_coverage(lines: Vec<LineCoverage>) -> (Vec<CoveredRange>, Vec<u
     }
 
     // Sort ranges by hit count (ascending) so zero-hit and low-hit ranges appear first
-    covered_ranges.sort_by(|a, b| a.hits.cmp(&b.hits));
+    covered_ranges.sort_by_key(|a| a.hits);
 
     (covered_ranges, uncovered_lines)
 }
