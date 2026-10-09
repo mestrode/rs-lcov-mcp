@@ -17,7 +17,7 @@
 
 use rmcp::ServiceExt;
 use rmcp::transport::stdio;
-use rs_lcov_mcp::server::handler::CoverageServer;
+use rust_tools_mcp::server::handler::CoverageServer;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
 mod tests {
     use super::*;
     use rmcp::ServerHandler;
-    use rs_lcov_mcp::{
+    use rust_tools_mcp::{
         commands::coverage::{
             create_execute_schema, create_file_schema, create_line_schema, handle_execute_coverage,
             handle_get_file_coverage, handle_get_line_coverage, parse_coverage_summary,
@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn test_full_module_integration() {
         // Test that all modules work together
-        use rs_lcov_mcp::model::*;
+        use rust_tools_mcp::model::*;
 
         // Test that we can create instances of all model types
         let metrics = CoverageMetrics {
@@ -107,7 +107,7 @@ mod tests {
     #[test]
     fn test_error_types_accessible() {
         // Verify all error types are accessible from main
-        use rs_lcov_mcp::error::CoverageError;
+        use rust_tools_mcp::error::CoverageError;
 
         let validation_err = CoverageError::Validation("test validation".to_string());
         let execution_err = CoverageError::ExecutionFailed("test execution".to_string());
@@ -121,8 +121,8 @@ mod tests {
     #[test]
     fn test_coverage_functions_accessible() {
         // Verify all coverage functions are accessible
-        use rs_lcov_mcp::commands::coverage::*;
-        use rs_lcov_mcp::commands::llvm_cov::execute_llvm_cov;
+        use rust_tools_mcp::commands::coverage::*;
+        use rust_tools_mcp::commands::llvm_cov::execute_llvm_cov;
 
         // These should compile without errors
         let _parse_summary = parse_coverage_summary;
@@ -145,7 +145,7 @@ mod tests {
     fn test_mcp_module_accessible() {
         // Verify MCP module functions are accessible
         use rmcp::ServerHandler;
-        use rs_lcov_mcp::server::handler::CoverageServer;
+        use rust_tools_mcp::server::handler::CoverageServer;
 
         let server = CoverageServer::new();
         let info = server.get_info();
@@ -157,7 +157,7 @@ mod tests {
     #[test]
     fn test_model_types_accessible() {
         // Verify all model types are accessible
-        use rs_lcov_mcp::model::*;
+        use rust_tools_mcp::model::*;
 
         let _metrics = CoverageMetrics {
             percentage: 50.0,
@@ -319,7 +319,7 @@ mod tests {
 
     #[test]
     fn test_error_conversions() {
-        use rs_lcov_mcp::error::CoverageError;
+        use rust_tools_mcp::error::CoverageError;
         use std::io;
 
         // Test From implementations
@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_model_serialization_in_main() {
-        use rs_lcov_mcp::model::*;
+        use rust_tools_mcp::model::*;
 
         let metrics = CoverageMetrics {
             percentage: 75.5,
@@ -359,7 +359,7 @@ mod tests {
 
     #[test]
     fn test_model_deserialization_in_main() {
-        use rs_lcov_mcp::model::*;
+        use rust_tools_mcp::model::*;
 
         let json_str = r#"{
             "percentage": 75.5,
@@ -379,8 +379,8 @@ mod tests {
 
     #[test]
     fn test_parameter_validation_in_main() {
-        use rs_lcov_mcp::commands::coverage::*;
-        use rs_lcov_mcp::model::*;
+        use rust_tools_mcp::commands::coverage::*;
+        use rust_tools_mcp::model::*;
 
         // Test valid parameters
         let exec_params = ExecuteCoverageParams {
@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn test_schema_creation_in_main() {
-        use rs_lcov_mcp::commands::coverage::*;
+        use rust_tools_mcp::commands::coverage::*;
 
         let execute_schema = create_execute_schema();
         let file_schema = create_file_schema();
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_command_building_in_main() {
-        use rs_lcov_mcp::commands::llvm_cov::build_llvm_cov_command;
+        use rust_tools_mcp::commands::llvm_cov::build_llvm_cov_command;
 
         let cmd = build_llvm_cov_command(false, None);
         let cmd_str = format!("{:?}", cmd);
@@ -451,7 +451,7 @@ mod tests {
 
     #[test]
     fn test_coverage_parsing_in_main() {
-        use rs_lcov_mcp::commands::coverage::parse_coverage_summary;
+        use rust_tools_mcp::commands::coverage::parse_coverage_summary;
         use serde_json::json;
 
         let json_output = json!({
@@ -481,7 +481,7 @@ mod tests {
 
     #[test]
     fn test_file_coverage_parsing_in_main() {
-        use rs_lcov_mcp::commands::coverage::parse_file_coverage;
+        use rust_tools_mcp::commands::coverage::parse_file_coverage;
         use serde_json::json;
 
         let json_output = json!({
@@ -514,7 +514,7 @@ mod tests {
 
     #[test]
     fn test_line_coverage_parsing_in_main() {
-        use rs_lcov_mcp::commands::coverage::parse_line_coverage;
+        use rust_tools_mcp::commands::coverage::parse_line_coverage;
         use serde_json::json;
 
         let json_output = json!({
@@ -550,7 +550,7 @@ mod tests {
 
     #[test]
     fn test_line_coverage_model_in_main() {
-        use rs_lcov_mcp::model::LineCoverage;
+        use rust_tools_mcp::model::LineCoverage;
 
         let lines = [
             LineCoverage {
@@ -592,8 +592,8 @@ mod tests {
     async fn test_async_handlers_compilation() {
         // These tests verify that the async handlers compile and can be called
         // Note: We can't actually execute them without cargo-llvm-cov installed
-        use rs_lcov_mcp::commands::coverage::*;
-        use rs_lcov_mcp::model::*;
+        use rust_tools_mcp::commands::coverage::*;
+        use rust_tools_mcp::model::*;
 
         // Test that we can create the parameters
         let exec_params = ExecuteCoverageParams {
@@ -626,7 +626,7 @@ mod tests {
 
     #[test]
     fn test_tool_schemas_in_main() {
-        use rs_lcov_mcp::commands::coverage::*;
+        use rust_tools_mcp::commands::coverage::*;
 
         let execute_schema = create_execute_schema();
         let file_schema = create_file_schema();
@@ -668,8 +668,8 @@ mod tests {
     #[test]
     fn test_complete_workflow_structure() {
         // This test verifies that the complete workflow from parameters to results works
-        use rs_lcov_mcp::commands::coverage::*;
-        use rs_lcov_mcp::model::*;
+        use rust_tools_mcp::commands::coverage::*;
+        use rust_tools_mcp::model::*;
         use serde_json::json;
 
         // 1. Create parameters
@@ -746,8 +746,8 @@ mod tests {
 
     #[test]
     fn test_boundary_values_in_main() {
-        use rs_lcov_mcp::commands::coverage::*;
-        use rs_lcov_mcp::model::*;
+        use rust_tools_mcp::commands::coverage::*;
+        use rust_tools_mcp::model::*;
 
         // Test zero values
         let metrics_zero = CoverageMetrics {
@@ -805,8 +805,8 @@ mod tests {
 
     #[test]
     fn test_error_cases_in_main() {
-        use rs_lcov_mcp::commands::coverage::*;
-        use rs_lcov_mcp::model::*;
+        use rust_tools_mcp::commands::coverage::*;
+        use rust_tools_mcp::model::*;
 
         // Test invalid threshold
         let exec_params_invalid = ExecuteCoverageParams {
@@ -874,7 +874,7 @@ mod tests {
 
     #[test]
     fn test_result_types_in_main() {
-        use rs_lcov_mcp::model::*;
+        use rust_tools_mcp::model::*;
 
         // Test successful results
         let success_summary = CoverageSummary {
@@ -932,7 +932,7 @@ mod tests {
 
     #[test]
     fn test_clone_and_debug_in_main() {
-        use rs_lcov_mcp::model::*;
+        use rust_tools_mcp::model::*;
 
         // Test cloning
         let metrics = CoverageMetrics {
@@ -975,10 +975,10 @@ mod tests {
     fn test_comprehensive_integration() {
         // This test exercises the entire codebase to ensure all parts work together
         use rmcp::ServerHandler;
-        use rs_lcov_mcp::commands::coverage::*;
-        use rs_lcov_mcp::error::*;
-        use rs_lcov_mcp::model::*;
-        use rs_lcov_mcp::server::handler::*;
+        use rust_tools_mcp::commands::coverage::*;
+        use rust_tools_mcp::error::*;
+        use rust_tools_mcp::model::*;
+        use rust_tools_mcp::server::handler::*;
 
         // 1. Test error handling
         let validation_err = CoverageError::Validation("test".to_string());

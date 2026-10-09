@@ -1,6 +1,6 @@
-# rs-cargo-tools
+# rust-tools-mcp
 
-[![Coverage Status](https://img.shields.io/badge/coverage-78.44%25-brightgreen)](https://github.com/mestrode/rs-lcov-mcp)
+[![Coverage Status](https://img.shields.io/badge/coverage-78.44%25-brightgreen)](https://github.com/mestrode/rust-tools-mcp)
 
 An MCP (Model Context Protocol) server for Rust development tools. It provides cargo command execution (fmt, check, clippy, test, build) and code coverage analysis using [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov).
 
@@ -35,13 +35,13 @@ An MCP (Model Context Protocol) server for Rust development tools. It provides c
 
 ```bash
 # Clone the repository
-git clone https://github.com/mestrode/rs-lcov-mcp
-cd rs-lcov-mcp
+git clone https://github.com/mestrode/rust-tools-mcp
+cd rust-tools-mcp
 
 # Build in release mode
 cargo build --release
 
-# The binary will be at target/release/rs-lcov-mcp
+# The binary will be at target/release/rust-tools-mcp
 ```
 
 ## Usage
