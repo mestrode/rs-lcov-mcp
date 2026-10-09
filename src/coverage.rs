@@ -376,7 +376,7 @@ pub fn execute_llvm_cov(workspace: bool, package: Option<&str>) -> Result<String
             )
         } else {
             CoverageError::ExecutionFailed(format!(
-                "Failed to execute cargo llvm-cov with workspace={}, package={:?}: {}",
+                "Failed to execute cargo llvm-cov with workspace={}, package={:?}: {}\nSuggestion: Run `cargo check` and `cargo test` first to ensure your project compiles and tests pass before running coverage analysis.",
                 workspace, package, e
             ))
         }
@@ -396,7 +396,7 @@ pub fn execute_llvm_cov(workspace: bool, package: Option<&str>) -> Result<String
         }
 
         return Err(CoverageError::ExecutionFailed(format!(
-            "cargo llvm-cov failed: {}",
+            "cargo llvm-cov failed: {}\nSuggestion: Run `cargo check` and `cargo test` first to ensure your project compiles and tests pass before running coverage analysis.",
             stderr
         )));
     }
