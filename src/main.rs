@@ -1,13 +1,18 @@
-//! rs-lcov-mcp: MCP server for Rust code coverage analysis using cargo-llvm-cov
+//! rs-cargo-tools: MCP server for Rust development tools
 //!
-//! This is an MCP (Model Context Protocol) server that provides tools for analyzing
-//! Rust code coverage. It uses cargo-llvm-cov under the hood to generate coverage
-//! reports and exposes them through the MCP protocol.
+//! This is an MCP (Model Context Protocol) server that provides tools for Rust development.
+//! It includes cargo command tools (fmt, check, clippy, test, build) and code coverage
+//! analysis using cargo-llvm-cov.
 //!
 //! # Usage
 //!
 //! The server can be run as a standalone process and communicates via stdio.
 //! It provides tools for:
+//! - Code formatting (cargo_fmt)
+//! - Code checking (cargo_check)
+//! - Linting (cargo_clippy)
+//! - Testing (cargo_test)
+//! - Building (cargo_build)
 //! - Code coverage analysis (get_coverage_summary, get_files_coverage, get_file_line_coverage)
 
 use rmcp::ServiceExt;
@@ -70,7 +75,7 @@ mod tests {
         use rmcp::ServerHandler;
         let server = CoverageServer::new();
         let info = server.get_info();
-        assert_eq!(info.server_info.name, "rs-lcov-mcp");
+        assert_eq!(info.server_info.name, "rs-cargo-tools");
     }
 
     // ========== Integration Tests ==========
@@ -145,8 +150,8 @@ mod tests {
         let server = CoverageServer::new();
         let info = server.get_info();
 
-        assert_eq!(info.server_info.name, "rs-lcov-mcp");
-        assert_eq!(info.server_info.version, "0.2.0");
+        assert_eq!(info.server_info.name, "rs-cargo-tools");
+        assert_eq!(info.server_info.version, "0.3.0");
     }
 
     #[test]
@@ -254,7 +259,7 @@ mod tests {
     async fn test_main_server_creation() {
         // Test that we can create the server as done in main()
         let server = CoverageServer::new();
-        assert_eq!(server.get_info().server_info.name, "rs-lcov-mcp");
+        assert_eq!(server.get_info().server_info.name, "rs-cargo-tools");
     }
 
     #[test]
@@ -271,8 +276,8 @@ mod tests {
         let server = CoverageServer::new();
         let info = server.get_info();
 
-        assert_eq!(info.server_info.name, "rs-lcov-mcp");
-        assert_eq!(info.server_info.version, "0.2.0");
+        assert_eq!(info.server_info.name, "rs-cargo-tools");
+        assert_eq!(info.server_info.version, "0.3.0");
     }
 
     #[test]
@@ -1010,7 +1015,7 @@ mod tests {
         // 5. Test server creation
         let server = CoverageServer::new();
         let info = server.get_info();
-        assert_eq!(info.server_info.name, "rs-lcov-mcp");
+        assert_eq!(info.server_info.name, "rs-cargo-tools");
 
         // 6. Test parameter validation
         let exec_params = ExecuteCoverageParams {

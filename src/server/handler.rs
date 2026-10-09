@@ -48,7 +48,7 @@ impl ServerHandler for CoverageServer {
         let mut config = ServerConfig::new(ServerCapabilities::builder().enable_tools().build());
         // Use the latest protocol version
         config.protocol_version = ProtocolVersion::LATEST;
-        config.server_info = Implementation::new("rs-lcov-mcp", "0.2.0");
+        config.server_info = Implementation::new("rs-cargo-tools", "0.3.0");
         config
     }
 
@@ -301,43 +301,43 @@ impl ServerHandler for CoverageServer {
             // Cargo tools
             Tool::new(
                 "cargo_fmt",
-                "Run cargo fmt to format Rust code according to rustfmt rules",
+                "Run cargo fmt to format Rust code according to rustfmt rules. Returns whether files were formatted and any output.",
                 fmt_schema,
             ),
             Tool::new(
                 "cargo_check",
-                "Run cargo check to verify code compiles without running tests",
+                "Run cargo check to verify code compiles without running tests. Returns warnings, errors, and compilation output.",
                 check_schema,
             ),
             Tool::new(
                 "cargo_clippy",
-                "Run cargo clippy to catch common mistakes and improve Rust code",
+                "Run cargo clippy to catch common mistakes and improve Rust code. Returns warnings, errors, and lint information.",
                 clippy_schema,
             ),
             Tool::new(
                 "cargo_test",
-                "Run cargo test to execute unit and integration tests",
+                "Run cargo test to execute unit and integration tests. Returns detailed test results including passed, failed, ignored, and filtered counts.",
                 test_schema,
             ),
             Tool::new(
                 "cargo_build",
-                "Run cargo build to compile the Rust project",
+                "Run cargo build to compile the Rust project. Returns build information including warnings, errors, and target details.",
                 build_schema,
             ),
-            // Coverage tools
+            // Coverage tools (require cargo-llvm-cov)
             Tool::new(
                 "get_coverage_summary",
-                "Get code coverage summary for the Rust project. Percentage = (total covered lines / total executable lines) * 100",
+                "Get code coverage summary for the Rust project using cargo-llvm-cov. Percentage = (total covered lines / total executable lines) * 100.",
                 execute_schema,
             ),
             Tool::new(
                 "get_files_coverage",
-                "Get detailed coverage for all files. Each file's percentage = (file covered lines / file total lines) * 100",
+                "Get detailed coverage for all files using cargo-llvm-cov. Each file's percentage = (file covered lines / file total lines) * 100.",
                 file_schema,
             ),
             Tool::new(
                 "get_file_line_coverage",
-                "Get line-by-line coverage details for a specific file. Shows which lines were executed during tests",
+                "Get line-by-line coverage details for a specific file using cargo-llvm-cov. Shows which lines were executed during tests.",
                 line_schema,
             ),
         ];
@@ -362,8 +362,8 @@ mod tests {
         let info = server.get_info();
 
         // Verify server info
-        assert_eq!(info.server_info.name, "rs-lcov-mcp");
-        assert_eq!(info.server_info.version, "0.2.0");
+        assert_eq!(info.server_info.name, "rs-cargo-tools");
+        assert_eq!(info.server_info.version, "0.3.0");
 
         // Verify capabilities - tools should be enabled
         assert!(
@@ -388,8 +388,8 @@ mod tests {
         let info = server.get_info();
 
         // Verify it returns a ServerConfig
-        assert_eq!(info.server_info.name, "rs-lcov-mcp");
-        assert_eq!(info.server_info.version, "0.2.0");
+        assert_eq!(info.server_info.name, "rs-cargo-tools");
+        assert_eq!(info.server_info.version, "0.3.0");
     }
 
     #[test]

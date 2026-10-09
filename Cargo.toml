@@ -1,16 +1,16 @@
 [package]
 name = "rs-lcov-mcp"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
-description = "A Rust MCP server for generating LCOV coverage reports from LLVM coverage data."
+description = "A Rust MCP server for cargo development tools and code coverage analysis using cargo-llvm-cov."
 authors = ["mestrode <35630715+mestrode@users.noreply.github.com>"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/mestrode/rs-lcov-mcp"
 homepage = "https://github.com/mestrode/rs-lcov-mcp"
 documentation = "https://docs.rs/rs-lcov-mcp"
-keywords = ["mcp", "coverage", "rust", "llvm-cov", "testing"]
-categories = ["development-tools::testing", "development-tools::profiling"]
+keywords = ["mcp", "coverage", "rust", "llvm-cov", "testing", "cargo", "development-tools"]
+categories = ["development-tools::testing", "development-tools::profiling", "development-tools::build-utils"]
 
 [dependencies]
 rmcp = { version = "3.5.1", features = ["server", "transport-io", "macros", "schemars"] }
