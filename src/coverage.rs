@@ -5,9 +5,10 @@
 
 use crate::error::{CoverageError, Result};
 use crate::model::{
-    BranchInfo, CoverageMetrics, CoverageSummary, CoveredRange, ExecuteCoverageParams, FileCoverage,
-    FileCoverageResult, FileLineCoverage, FunctionCoverage, GetFileLineCoverageParams,
-    GetFilesCoverageParams, LineCoverage, LineCoverageResult, ThresholdResult,
+    BranchInfo, CoverageMetrics, CoverageSummary, CoveredRange, ExecuteCoverageParams,
+    FileCoverage, FileCoverageResult, FileLineCoverage, FunctionCoverage,
+    GetFileLineCoverageParams, GetFilesCoverageParams, LineCoverage, LineCoverageResult,
+    ThresholdResult,
 };
 use serde_json::{Map, Value};
 use std::process::Command;
@@ -932,14 +933,14 @@ mod tests {
         assert!(result.is_some());
         let file_coverage = result.unwrap();
         assert_eq!(file_coverage.path, "src/lib.rs");
-        
+
         // With hybrid format: lines 1 and 3 are covered (each with hits=1)
         // Line 2 has hits=0 and covered=false, so it's not included at all
         // Lines 1 and 3 are consecutive in terms of included lines, but not consecutive line numbers
         // So we should have 2 separate ranges (1-1 and 3-3)
         assert_eq!(file_coverage.covered_ranges.len(), 2);
         assert_eq!(file_coverage.uncovered_lines.len(), 0);
-        
+
         // Check covered ranges
         let covered_lines: Vec<u32> = file_coverage
             .covered_ranges
@@ -1474,13 +1475,41 @@ mod tests {
     fn test_compress_line_coverage_basic() {
         // Test compression of consecutive covered lines with same hits
         let lines = vec![
-            LineCoverage { line: 1, covered: true, hits: 5 },
-            LineCoverage { line: 2, covered: true, hits: 5 },
-            LineCoverage { line: 3, covered: true, hits: 5 },
-            LineCoverage { line: 5, covered: true, hits: 3 },
-            LineCoverage { line: 6, covered: false, hits: 0 },
-            LineCoverage { line: 7, covered: true, hits: 2 },
-            LineCoverage { line: 8, covered: true, hits: 2 },
+            LineCoverage {
+                line: 1,
+                covered: true,
+                hits: 5,
+            },
+            LineCoverage {
+                line: 2,
+                covered: true,
+                hits: 5,
+            },
+            LineCoverage {
+                line: 3,
+                covered: true,
+                hits: 5,
+            },
+            LineCoverage {
+                line: 5,
+                covered: true,
+                hits: 3,
+            },
+            LineCoverage {
+                line: 6,
+                covered: false,
+                hits: 0,
+            },
+            LineCoverage {
+                line: 7,
+                covered: true,
+                hits: 2,
+            },
+            LineCoverage {
+                line: 8,
+                covered: true,
+                hits: 2,
+            },
         ];
 
         let (covered_ranges, uncovered_lines) = compress_line_coverage(lines);
@@ -1508,9 +1537,21 @@ mod tests {
     fn test_compress_line_coverage_all_covered() {
         // Test when all lines are covered with same hits
         let lines = vec![
-            LineCoverage { line: 10, covered: true, hits: 1 },
-            LineCoverage { line: 11, covered: true, hits: 1 },
-            LineCoverage { line: 12, covered: true, hits: 1 },
+            LineCoverage {
+                line: 10,
+                covered: true,
+                hits: 1,
+            },
+            LineCoverage {
+                line: 11,
+                covered: true,
+                hits: 1,
+            },
+            LineCoverage {
+                line: 12,
+                covered: true,
+                hits: 1,
+            },
         ];
 
         let (covered_ranges, uncovered_lines) = compress_line_coverage(lines);
@@ -1526,9 +1567,21 @@ mod tests {
     fn test_compress_line_coverage_all_uncovered() {
         // Test when all lines are uncovered
         let lines = vec![
-            LineCoverage { line: 1, covered: false, hits: 0 },
-            LineCoverage { line: 3, covered: false, hits: 0 },
-            LineCoverage { line: 5, covered: false, hits: 0 },
+            LineCoverage {
+                line: 1,
+                covered: false,
+                hits: 0,
+            },
+            LineCoverage {
+                line: 3,
+                covered: false,
+                hits: 0,
+            },
+            LineCoverage {
+                line: 5,
+                covered: false,
+                hits: 0,
+            },
         ];
 
         let (covered_ranges, uncovered_lines) = compress_line_coverage(lines);
@@ -1542,17 +1595,33 @@ mod tests {
     fn test_compress_line_coverage_mixed_hits() {
         // Test compression stops when hit count changes
         let lines = vec![
-            LineCoverage { line: 1, covered: true, hits: 1 },
-            LineCoverage { line: 2, covered: true, hits: 1 },
-            LineCoverage { line: 3, covered: true, hits: 2 },  // hits change
-            LineCoverage { line: 4, covered: true, hits: 2 },
+            LineCoverage {
+                line: 1,
+                covered: true,
+                hits: 1,
+            },
+            LineCoverage {
+                line: 2,
+                covered: true,
+                hits: 1,
+            },
+            LineCoverage {
+                line: 3,
+                covered: true,
+                hits: 2,
+            }, // hits change
+            LineCoverage {
+                line: 4,
+                covered: true,
+                hits: 2,
+            },
         ];
 
         let (covered_ranges, uncovered_lines) = compress_line_coverage(lines);
 
         assert_eq!(covered_ranges.len(), 2);
         assert_eq!(uncovered_lines.len(), 0);
-        
+
         assert_eq!(covered_ranges[0].start, 1);
         assert_eq!(covered_ranges[0].end, 2);
         assert_eq!(covered_ranges[0].hits, 1);

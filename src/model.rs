@@ -1,5 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+/// Format a f64 percentage to 2 decimal places as a string
+fn format_percentage_str<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(&format!("{:.2}", value))
+}
+
 /// Output for the execute_coverage tool (summary)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CoverageSummary {
@@ -17,6 +25,7 @@ pub struct CoverageSummary {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CoverageMetrics {
     /// Overall coverage percentage (0-100)
+    #[serde(serialize_with = "format_percentage_str")]
     pub percentage: f64,
     /// Number of lines covered by tests
     pub lines_covered: u32,
@@ -34,6 +43,7 @@ pub struct ThresholdResult {
     /// Whether the coverage percentage met the threshold
     pub met: bool,
     /// The threshold value that was checked
+    #[serde(serialize_with = "format_percentage_str")]
     pub value: f64,
 }
 
@@ -54,8 +64,10 @@ pub struct FileCoverage {
     /// File path
     pub path: String,
     /// Line coverage percentage for this file
+    #[serde(serialize_with = "format_percentage_str")]
     pub line_coverage: f64,
     /// Branch coverage percentage for this file
+    #[serde(serialize_with = "format_percentage_str")]
     pub branch_coverage: f64,
     /// Number of lines covered in this file
     pub lines_covered: u32,
@@ -71,8 +83,10 @@ pub struct FunctionCoverage {
     /// Function name
     pub name: String,
     /// Line coverage percentage for this function
+    #[serde(serialize_with = "format_percentage_str")]
     pub line_coverage: f64,
     /// Branch coverage percentage for this function
+    #[serde(serialize_with = "format_percentage_str")]
     pub branch_coverage: f64,
     /// Information about each branch point in the function
     pub branches: Vec<BranchInfo>,
@@ -119,6 +133,7 @@ pub struct FileLineCoverage {
     /// File path
     pub path: String,
     /// Overall line coverage percentage for this file
+    #[serde(serialize_with = "format_percentage_str")]
     pub line_coverage: f64,
     /// Ranges of consecutive covered lines grouped by hit count
     pub covered_ranges: Vec<CoveredRange>,
