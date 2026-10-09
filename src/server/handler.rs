@@ -5,6 +5,7 @@
 
 use crate::commands::build::{BuildParams, create_schema as create_build_schema, handle_build};
 use crate::commands::check::{CheckParams, create_schema as create_check_schema, handle_check};
+use crate::commands::clean::{CleanParams, create_schema as create_clean_schema, handle_clean};
 use crate::commands::clippy::{ClippyParams, create_schema as create_clippy_schema, handle_clippy};
 use crate::commands::coverage::{
     create_execute_schema, create_file_schema, create_line_schema, handle_execute_coverage,
@@ -173,6 +174,32 @@ impl ServerHandler for CoverageServer {
                     )),
                 }
             }
+            "cargo_clean" => {
+                let args = request.arguments.clone().unwrap_or_default();
+                let params: CleanParams =
+                    serde_json::from_value(Value::Object(args)).map_err(|e| {
+                        McpError::invalid_params(
+                            format!("Invalid parameters for cargo_clean: {}", e),
+                            None,
+                        )
+                    })?;
+
+                match handle_clean(params).await {
+                    Ok(result) => {
+                        let structured = serde_json::to_value(result)
+                            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                        Ok(CallToolResponse::Complete(CallToolResult::structured(
+                            structured,
+                        )))
+                    }
+                    Err(e) => Ok(CallToolResponse::Complete(
+                        CallToolResult::structured_error(json!({
+                            "success": false,
+                            "error": e.to_string()
+                        })),
+                    )),
+                }
+            }
             "cargo_check" => {
                 let args = request.arguments.clone().unwrap_or_default();
                 let params: CheckParams =
@@ -296,6 +323,7 @@ impl ServerHandler for CoverageServer {
         let clippy_schema = create_clippy_schema();
         let test_schema = create_test_schema();
         let build_schema = create_build_schema();
+        let clean_schema = create_clean_schema();
 
         let tools = vec![
             // Cargo tools
@@ -323,6 +351,11 @@ impl ServerHandler for CoverageServer {
                 "cargo_build",
                 "Run cargo build to compile the Rust project. Returns build information including warnings, errors, and target details.",
                 build_schema,
+            ),
+            Tool::new(
+                "cargo_clean",
+                "Run cargo clean to remove generated artifacts. Returns what was cleaned and any output.",
+                clean_schema,
             ),
             // Coverage tools (require cargo-llvm-cov)
             Tool::new(

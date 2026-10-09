@@ -626,17 +626,20 @@ mod tests {
 
     #[test]
     fn test_tool_schemas_in_main() {
+        use rust_tools_mcp::commands::clean::create_schema as create_clean_schema;
         use rust_tools_mcp::commands::coverage::*;
 
         let execute_schema = create_execute_schema();
         let file_schema = create_file_schema();
         let line_schema = create_line_schema();
+        let clean_schema = create_clean_schema();
 
         // Verify all schemas have required fields
         for (name, schema) in &[
             ("execute", &execute_schema),
             ("file", &file_schema),
             ("line", &line_schema),
+            ("clean", &clean_schema),
         ] {
             assert!(schema.contains_key("type"), "{} schema missing type", name);
             assert!(
@@ -661,6 +664,37 @@ mod tests {
         } else {
             panic!("line schema should have required field");
         }
+
+        // Verify clean schema has expected properties
+        let clean_properties = clean_schema["properties"].as_object().unwrap();
+        assert!(
+            clean_properties.contains_key("package"),
+            "clean schema should have package property"
+        );
+        assert!(
+            clean_properties.contains_key("workspace"),
+            "clean schema should have workspace property"
+        );
+        assert!(
+            clean_properties.contains_key("release"),
+            "clean schema should have release property"
+        );
+        assert!(
+            clean_properties.contains_key("debug"),
+            "clean schema should have debug property"
+        );
+        assert!(
+            clean_properties.contains_key("all_targets"),
+            "clean schema should have all_targets property"
+        );
+        assert!(
+            clean_properties.contains_key("doc"),
+            "clean schema should have doc property"
+        );
+        assert!(
+            clean_properties.contains_key("target_dir"),
+            "clean schema should have target_dir property"
+        );
     }
 
     // ========== Complete Workflow Test ==========
