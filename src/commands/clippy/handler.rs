@@ -144,7 +144,7 @@ fn parse_clippy_output(output: &str) -> (u32, u32, Vec<String>) {
         } else if line.contains("error:") || line.contains("error[") {
             errors += 1;
         }
-        
+
         // Extract lint name from any line that contains lint information
         if let Some(start) = line.find("lint: `") {
             let rest = &line[start + 7..]; // Skip "lint: `"
