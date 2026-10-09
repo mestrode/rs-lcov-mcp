@@ -137,7 +137,9 @@ mod tests {
     fn test_result_type() {
         let success: Result<i32> = Ok(42);
         assert!(success.is_ok());
-        assert_eq!(success.unwrap(), 42);
+        if let Ok(val) = success {
+            assert_eq!(val, 42);
+        }
 
         let error: Result<i32> = Err(CoverageError::Validation("Test error".to_string()));
         assert!(error.is_err());
@@ -219,7 +221,9 @@ mod tests {
     fn test_command_result_type() {
         let success: CommandResult<i32> = Ok(42);
         assert!(success.is_ok());
-        assert_eq!(success.unwrap(), 42);
+        if let Ok(val) = success {
+            assert_eq!(val, 42);
+        }
 
         let error: CommandResult<i32> = Err(CommandError::Validation("Test error".to_string()));
         assert!(error.is_err());

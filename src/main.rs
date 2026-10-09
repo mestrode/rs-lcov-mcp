@@ -266,7 +266,7 @@ mod tests {
     fn test_main_exports() {
         // Verify that main.rs exports are accessible
         // All modules should be accessible
-        assert!(true); // Placeholder - modules are verified by compilation
+        // Modules are verified by compilation
     }
 
     // ========== Version and Metadata Tests ==========
@@ -552,7 +552,7 @@ mod tests {
     fn test_line_coverage_model_in_main() {
         use rs_lcov_mcp::model::LineCoverage;
 
-        let lines = vec![
+        let lines = [
             LineCoverage {
                 line: 1,
                 covered: true,
@@ -1078,6 +1078,5 @@ mod tests {
         assert!(!parsed_files.is_empty());
 
         // If we got here, all tests passed!
-        assert!(true);
     }
 }

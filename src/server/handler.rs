@@ -564,6 +564,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::useless_vec)]
     fn test_tool_creation_logic() {
         // Test the tool creation logic that list_tools uses
         let execute_schema = create_execute_schema();
@@ -752,9 +753,8 @@ mod tests {
         let server = CoverageServer::new();
         let info = server.get_info();
 
-        let tools_cap = info.capabilities.tools.unwrap();
-        // Tools should be enabled
-        assert!(tools_cap.list_changed.is_some() || true); // At least the field exists
+        // Tools should be enabled - the important thing is that tools capability exists
+        assert!(info.capabilities.tools.is_some());
     }
 
     #[test]
@@ -869,6 +869,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::useless_vec)]
     fn test_tool_names_are_unique() {
         let execute_schema = create_execute_schema();
         let file_schema = create_file_schema();
