@@ -2,11 +2,10 @@
 //!
 //! This module provides the handler function for the cargo build command.
 
-use crate::commands::utils::{
-    create_array_property, create_bool_property, create_string_property, parse_cargo_output,
-};
+use crate::commands::utils::{create_array_property, create_bool_property, create_string_property};
 use crate::error::CommandResult;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::process::Command;
 
 /// Parameters for the cargo build tool
@@ -46,6 +45,27 @@ pub struct BuildParams {
     pub target_dir: Option<String>,
 }
 
+/// A single diagnostic message from cargo build
+#[derive(Debug, Serialize, Clone)]
+pub struct BuildDiagnostic {
+    /// Severity level: "error", "warning", "note", "help"
+    pub level: String,
+    /// Error code (e.g., "E0583")
+    pub code: Option<String>,
+    /// Short message
+    pub message: String,
+    /// File path where the diagnostic occurred
+    pub file: Option<String>,
+    /// Line number
+    pub line: Option<u32>,
+    /// Column number
+    pub column: Option<u32>,
+    /// Full rendered message
+    pub rendered: String,
+    /// Suggested replacement text
+    pub suggested_replacement: Option<String>,
+}
+
 /// Result of the cargo build tool
 #[derive(Debug, Serialize, Clone)]
 pub struct BuildResult {
@@ -55,14 +75,14 @@ pub struct BuildResult {
     pub release_mode: bool,
     /// Target triple if specified
     pub target: Option<String>,
-    /// Command output
-    pub output: Option<String>,
-    /// Error message if the command failed
-    pub error: Option<String>,
     /// Number of warnings found
     pub warnings: u32,
     /// Number of errors found
     pub errors: u32,
+    /// Structured diagnostics (errors and warnings)
+    pub diagnostics: Vec<BuildDiagnostic>,
+    /// Error message if the command failed
+    pub error: Option<String>,
 }
 
 /// Handler for cargo build command
@@ -121,27 +141,56 @@ pub async fn handle_build(params: BuildParams) -> CommandResult<BuildResult> {
         cmd.args(["--target-dir", target_dir]);
     }
 
+    cmd.arg("--message-format=json");
+
     let output = cmd.output().map_err(|e| {
         crate::error::CommandError::ExecutionFailed(format!("Failed to execute cargo build: {}", e))
     })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let _stderr = String::from_utf8_lossy(&output.stderr);
 
-    let (warnings, errors) = parse_cargo_output(&stderr);
+    // Parse JSON output from stdout only
+    let diagnostics = parse_build_output(&stdout);
 
-    if !output.status.success() {
+    // Count errors and warnings
+    let errors = diagnostics.iter().filter(|d| d.level == "error").count() as u32;
+    let warnings = diagnostics.iter().filter(|d| d.level == "warning").count() as u32;
+
+    // Sort diagnostics: errors first, then warnings, then others
+    let mut diagnostics = diagnostics;
+    diagnostics.sort_by(|a, b| {
+        let a_order = match a.level.as_str() {
+            "error" => 0,
+            "warning" => 1,
+            "note" => 2,
+            "help" => 3,
+            _ => 4,
+        };
+        let b_order = match b.level.as_str() {
+            "error" => 0,
+            "warning" => 1,
+            "note" => 2,
+            "help" => 3,
+            _ => 4,
+        };
+        a_order.cmp(&b_order)
+    });
+
+    let success = output.status.success();
+
+    if !success {
         return Ok(BuildResult {
             success: false,
             release_mode: params.release,
             target: params.target,
-            output: Some(stderr.into_owned()),
+            warnings,
+            errors,
+            diagnostics,
             error: Some(format!(
                 "cargo build failed with {} errors and {} warnings",
                 errors, warnings
             )),
-            warnings,
-            errors,
         });
     }
 
@@ -149,11 +198,119 @@ pub async fn handle_build(params: BuildParams) -> CommandResult<BuildResult> {
         success: true,
         release_mode: params.release,
         target: params.target,
-        output: Some(stdout.into_owned()),
-        error: None,
         warnings,
         errors,
+        diagnostics,
+        error: None,
     })
+}
+
+/// Parse cargo build JSON output and extract diagnostics
+fn parse_build_output(stdout: &str) -> Vec<BuildDiagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen: HashSet<(String, Option<u32>, Option<String>)> = HashSet::new();
+
+    for line in stdout.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        if let Ok(message) = serde_json::from_str::<serde_json::Value>(line)
+            && let Some(reason) = message.get("reason").and_then(|v| v.as_str())
+            && reason == "compiler-message"
+            && let Some(diag) = parse_compiler_message(&message)
+        {
+            let key = (
+                diag.file.clone().unwrap_or_default(),
+                diag.line,
+                diag.code.clone(),
+            );
+            if seen.insert(key) {
+                diagnostics.push(diag);
+            }
+        }
+    }
+
+    diagnostics
+}
+
+/// Parse a compiler-message JSON object into a BuildDiagnostic
+fn parse_compiler_message(message: &serde_json::Value) -> Option<BuildDiagnostic> {
+    let message_obj = message.get("message")?.as_object()?;
+
+    let level = message_obj.get("level")?.as_str()?.to_string();
+    let code = message_obj.get("code")?.as_str().map(String::from);
+    let message_text = message_obj.get("message")?.as_str().map(String::from);
+    let rendered = message_obj
+        .get("rendered")
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .or_else(|| message_text.clone());
+
+    let (file, line, column, suggested_replacement) = extract_spans(message);
+
+    Some(BuildDiagnostic {
+        level,
+        code,
+        message: message_text.unwrap_or_default(),
+        file,
+        line,
+        column,
+        rendered: rendered.unwrap_or_default(),
+        suggested_replacement,
+    })
+}
+
+/// Extract file, line, column, and suggested replacement from message spans
+fn extract_spans(
+    message: &serde_json::Value,
+) -> (Option<String>, Option<u32>, Option<u32>, Option<String>) {
+    let spans = message.get("message").and_then(|m| m.get("spans"));
+
+    if let Some(spans_array) = spans.and_then(|s| s.as_array()) {
+        for span in spans_array {
+            if let Some(span_obj) = span.as_object() {
+                let is_primary = span_obj
+                    .get("is_primary")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+
+                if is_primary {
+                    let file_name = span_obj
+                        .get("file_name")
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+                    let line_start = span_obj
+                        .get("line_start")
+                        .and_then(|v| v.as_u64())
+                        .map(|n| n as u32);
+                    let column_start = span_obj
+                        .get("column_start")
+                        .and_then(|v| v.as_u64())
+                        .map(|n| n as u32);
+
+                    let suggested_replacement = span_obj
+                        .get("suggested_replacement")
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+
+                    return (file_name, line_start, column_start, suggested_replacement);
+                }
+            }
+        }
+    }
+
+    // Fallback: try to get from target
+    let target = message.get("target").and_then(|t| t.as_object());
+    if let Some(target_obj) = target {
+        let file_path = target_obj
+            .get("src_path")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+        return (file_path, None, None, None);
+    }
+
+    (None, None, None, None)
 }
 
 /// Create JSON schema for cargo build tool
@@ -309,7 +466,7 @@ mod tests {
             success: true,
             release_mode: true,
             target: Some("x86_64-unknown-linux-gnu".to_string()),
-            output: Some("Build successful".to_string()),
+            diagnostics: vec![],
             error: None,
             warnings: 2,
             errors: 0,
@@ -319,8 +476,8 @@ mod tests {
         assert!(json["success"].as_bool().unwrap());
         assert!(json["release_mode"].as_bool().unwrap());
         assert_eq!(json["target"], "x86_64-unknown-linux-gnu");
-        assert_eq!(json["output"], "Build successful");
         assert!(json["error"].is_null());
+        assert!(json["diagnostics"].as_array().unwrap().is_empty());
         assert_eq!(json["warnings"], 2);
         assert_eq!(json["errors"], 0);
     }
@@ -331,7 +488,7 @@ mod tests {
             success: false,
             release_mode: false,
             target: None,
-            output: Some("Build failed".to_string()),
+            diagnostics: vec![],
             error: Some("cargo build failed with 2 errors and 5 warnings".to_string()),
             warnings: 5,
             errors: 2,

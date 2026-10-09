@@ -61,8 +61,6 @@ pub struct CheckResult {
     pub errors: u32,
     /// Structured diagnostics (errors and warnings)
     pub diagnostics: Vec<CheckDiagnostic>,
-    /// Raw command output (for backwards compatibility)
-    pub output: Option<String>,
     /// Error message if the command failed
     pub error: Option<String>,
 }
@@ -105,7 +103,7 @@ pub async fn handle_check(params: CheckParams) -> CommandResult<CheckResult> {
     })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let _stderr = String::from_utf8_lossy(&output.stderr);
 
     // Parse JSON output from stdout only
     let diagnostics = parse_check_output(&stdout);
@@ -143,7 +141,6 @@ pub async fn handle_check(params: CheckParams) -> CommandResult<CheckResult> {
             warnings,
             errors,
             diagnostics,
-            output: Some(stderr.into_owned()),
             error: Some(format!(
                 "cargo check failed with {} errors and {} warnings",
                 errors, warnings
@@ -156,7 +153,6 @@ pub async fn handle_check(params: CheckParams) -> CommandResult<CheckResult> {
         warnings,
         errors,
         diagnostics,
-        output: Some(stdout.into_owned()),
         error: None,
     })
 }
@@ -394,7 +390,6 @@ mod tests {
             warnings: 2,
             errors: 0,
             diagnostics: vec![],
-            output: Some("Compilation successful".to_string()),
             error: None,
         };
 
@@ -402,7 +397,6 @@ mod tests {
         assert!(json["success"].as_bool().unwrap());
         assert_eq!(json["warnings"], 2);
         assert_eq!(json["errors"], 0);
-        assert_eq!(json["output"], "Compilation successful");
         assert!(json["error"].is_null());
         assert!(json["diagnostics"].as_array().unwrap().is_empty());
     }
@@ -437,7 +431,6 @@ mod tests {
             warnings: 1,
             errors: 1,
             diagnostics,
-            output: Some("Compilation failed".to_string()),
             error: Some("cargo check failed with 1 errors and 1 warnings".to_string()),
         };
 
@@ -465,7 +458,6 @@ mod tests {
             warnings: 5,
             errors: 2,
             diagnostics: vec![],
-            output: Some("Compilation failed".to_string()),
             error: Some("cargo check failed with 2 errors and 5 warnings".to_string()),
         };
 
