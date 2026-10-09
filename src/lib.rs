@@ -19,20 +19,6 @@ pub mod server;
 /// Commands module containing all cargo command implementations
 pub mod commands;
 
-/// Coverage analysis module for cargo-llvm-cov integration
-///
-/// @deprecated Use `commands::coverage` module instead
-pub mod coverage {
-    pub use crate::commands::coverage::*;
-}
-
-/// MCP server implementation for Rust code coverage analysis
-///
-/// @deprecated Use `server` module instead
-pub mod mcp {
-    pub use crate::server::*;
-}
-
 /// Re-export commonly used types for convenience
 pub use error::{CommandError, CommandResult, CoverageError, Result};
 pub use model::*;

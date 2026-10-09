@@ -12,7 +12,7 @@
 
 use rmcp::ServiceExt;
 use rmcp::transport::stdio;
-use rs_lcov_mcp::mcp::CoverageServer;
+use rs_lcov_mcp::server::handler::CoverageServer;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -140,7 +140,7 @@ mod tests {
     fn test_mcp_module_accessible() {
         // Verify MCP module functions are accessible
         use rmcp::ServerHandler;
-        use rs_lcov_mcp::mcp::CoverageServer;
+        use rs_lcov_mcp::server::handler::CoverageServer;
 
         let server = CoverageServer::new();
         let info = server.get_info();
@@ -972,8 +972,8 @@ mod tests {
         use rmcp::ServerHandler;
         use rs_lcov_mcp::commands::coverage::*;
         use rs_lcov_mcp::error::*;
-        use rs_lcov_mcp::mcp::*;
         use rs_lcov_mcp::model::*;
+        use rs_lcov_mcp::server::handler::*;
 
         // 1. Test error handling
         let validation_err = CoverageError::Validation("test".to_string());
