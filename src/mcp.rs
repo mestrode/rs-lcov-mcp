@@ -42,7 +42,7 @@ impl ServerHandler for CoverageServer {
         let mut config = ServerConfig::new(ServerCapabilities::builder().enable_tools().build());
         // Use the latest protocol version
         config.protocol_version = ProtocolVersion::LATEST;
-        config.server_info = Implementation::new("rs-lcov-mcp", "0.1.0");
+        config.server_info = Implementation::new("rs-lcov-mcp", "0.2.0");
         config
     }
 
@@ -195,7 +195,7 @@ mod tests {
 
         // Verify server info
         assert_eq!(info.server_info.name, "rs-lcov-mcp");
-        assert_eq!(info.server_info.version, "0.1.0");
+        assert_eq!(info.server_info.version, "0.2.0");
 
         // Verify capabilities - tools should be enabled
         assert!(
@@ -221,7 +221,7 @@ mod tests {
 
         // Verify it returns a ServerConfig
         assert_eq!(info.server_info.name, "rs-lcov-mcp");
-        assert_eq!(info.server_info.version, "0.1.0");
+        assert_eq!(info.server_info.version, "0.2.0");
     }
 
     #[test]
