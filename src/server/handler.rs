@@ -3,6 +3,7 @@
 //! This module implements the MCP (Model Context Protocol) server that provides
 //! tools for analyzing Rust code coverage using cargo-llvm-cov.
 
+use crate::commands::check::{CheckParams, create_schema as create_check_schema, handle_check};
 use crate::commands::coverage::{
     create_execute_schema, create_file_schema, create_line_schema, handle_execute_coverage,
     handle_get_file_coverage, handle_get_line_coverage,
@@ -76,6 +77,32 @@ impl ServerHandler for CoverageServer {
                     })?;
 
                 match handle_fmt(params).await {
+                    Ok(result) => {
+                        let structured = serde_json::to_value(result)
+                            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                        Ok(CallToolResponse::Complete(CallToolResult::structured(
+                            structured,
+                        )))
+                    }
+                    Err(e) => Ok(CallToolResponse::Complete(
+                        CallToolResult::structured_error(json!({
+                            "success": false,
+                            "error": e.to_string()
+                        })),
+                    )),
+                }
+            }
+            "cargo_check" => {
+                let args = request.arguments.clone().unwrap_or_default();
+                let params: CheckParams =
+                    serde_json::from_value(Value::Object(args)).map_err(|e| {
+                        McpError::invalid_params(
+                            format!("Invalid parameters for cargo_check: {}", e),
+                            None,
+                        )
+                    })?;
+
+                match handle_check(params).await {
                     Ok(result) => {
                         let structured = serde_json::to_value(result)
                             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
@@ -184,6 +211,7 @@ impl ServerHandler for CoverageServer {
         let file_schema = create_file_schema();
         let line_schema = create_line_schema();
         let fmt_schema = create_fmt_schema();
+        let check_schema = create_check_schema();
 
         let tools = vec![
             // Cargo tools
@@ -191,6 +219,11 @@ impl ServerHandler for CoverageServer {
                 "cargo_fmt",
                 "Run cargo fmt to format Rust code according to rustfmt rules",
                 fmt_schema,
+            ),
+            Tool::new(
+                "cargo_check",
+                "Run cargo check to verify code compiles without running tests",
+                check_schema,
             ),
             // Coverage tools
             Tool::new(
