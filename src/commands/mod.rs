@@ -6,8 +6,10 @@
 
 pub mod coverage;
 pub mod llvm_cov;
+pub mod utils;
 
 /// Re-export commonly used types from submodules
 pub use coverage::handler::*;
 pub use coverage::parser::*;
 pub use llvm_cov::handler::*;
+pub use utils::*;
