@@ -4,6 +4,7 @@
 //! Each submodule represents a specific cargo command (fmt, check, clippy, test, build)
 //! or command category (coverage, llvm_cov).
 
+pub mod build;
 pub mod check;
 pub mod clippy;
 pub mod coverage;
@@ -12,6 +13,7 @@ pub mod llvm_cov;
 pub mod test;
 pub mod utils;
 
+pub use build::{BuildParams, BuildResult, create_schema as create_build_schema, handle_build};
 /// Re-export commonly used types from submodules
 pub use check::{CheckParams, CheckResult, create_schema as create_check_schema, handle_check};
 pub use clippy::{
