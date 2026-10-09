@@ -10,6 +10,7 @@ use crate::commands::coverage::{
     handle_get_file_coverage, handle_get_line_coverage,
 };
 use crate::commands::fmt::{FmtParams, create_schema as create_fmt_schema, handle_fmt};
+use crate::commands::test::{TestParams, create_schema as create_test_schema, handle_test};
 use crate::model::{ExecuteCoverageParams, GetFileLineCoverageParams, GetFilesCoverageParams};
 use rmcp::{
     ErrorData as McpError,
@@ -104,6 +105,32 @@ impl ServerHandler for CoverageServer {
                     })?;
 
                 match handle_clippy(params).await {
+                    Ok(result) => {
+                        let structured = serde_json::to_value(result)
+                            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                        Ok(CallToolResponse::Complete(CallToolResult::structured(
+                            structured,
+                        )))
+                    }
+                    Err(e) => Ok(CallToolResponse::Complete(
+                        CallToolResult::structured_error(json!({
+                            "success": false,
+                            "error": e.to_string()
+                        })),
+                    )),
+                }
+            }
+            "cargo_test" => {
+                let args = request.arguments.clone().unwrap_or_default();
+                let params: TestParams =
+                    serde_json::from_value(Value::Object(args)).map_err(|e| {
+                        McpError::invalid_params(
+                            format!("Invalid parameters for cargo_test: {}", e),
+                            None,
+                        )
+                    })?;
+
+                match handle_test(params).await {
                     Ok(result) => {
                         let structured = serde_json::to_value(result)
                             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
@@ -240,6 +267,7 @@ impl ServerHandler for CoverageServer {
         let fmt_schema = create_fmt_schema();
         let check_schema = create_check_schema();
         let clippy_schema = create_clippy_schema();
+        let test_schema = create_test_schema();
 
         let tools = vec![
             // Cargo tools
@@ -257,6 +285,11 @@ impl ServerHandler for CoverageServer {
                 "cargo_clippy",
                 "Run cargo clippy to catch common mistakes and improve Rust code",
                 clippy_schema,
+            ),
+            Tool::new(
+                "cargo_test",
+                "Run cargo test to execute unit and integration tests",
+                test_schema,
             ),
             // Coverage tools
             Tool::new(
