@@ -3,10 +3,11 @@
 //! This module implements the MCP (Model Context Protocol) server that provides
 //! tools for analyzing Rust code coverage using cargo-llvm-cov.
 
-use crate::coverage::{
+use crate::commands::coverage::{
     create_execute_schema, create_file_schema, create_line_schema, handle_execute_coverage,
     handle_get_file_coverage, handle_get_line_coverage,
 };
+use crate::commands::fmt::{FmtParams, create_schema as create_fmt_schema, handle_fmt};
 use crate::model::{ExecuteCoverageParams, GetFileLineCoverageParams, GetFilesCoverageParams};
 use rmcp::{
     ErrorData as McpError,
@@ -64,6 +65,32 @@ impl ServerHandler for CoverageServer {
         let tool_name = request.name.as_ref();
 
         match tool_name {
+            "cargo_fmt" => {
+                let args = request.arguments.clone().unwrap_or_default();
+                let params: FmtParams =
+                    serde_json::from_value(Value::Object(args)).map_err(|e| {
+                        McpError::invalid_params(
+                            format!("Invalid parameters for cargo_fmt: {}", e),
+                            None,
+                        )
+                    })?;
+
+                match handle_fmt(params).await {
+                    Ok(result) => {
+                        let structured = serde_json::to_value(result)
+                            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                        Ok(CallToolResponse::Complete(CallToolResult::structured(
+                            structured,
+                        )))
+                    }
+                    Err(e) => Ok(CallToolResponse::Complete(
+                        CallToolResult::structured_error(json!({
+                            "success": false,
+                            "error": e.to_string()
+                        })),
+                    )),
+                }
+            }
             "get_coverage_summary" => {
                 let args = request.arguments.clone().unwrap_or_default();
                 let params: ExecuteCoverageParams = serde_json::from_value(Value::Object(args))
@@ -156,8 +183,16 @@ impl ServerHandler for CoverageServer {
         let execute_schema = create_execute_schema();
         let file_schema = create_file_schema();
         let line_schema = create_line_schema();
+        let fmt_schema = create_fmt_schema();
 
         let tools = vec![
+            // Cargo tools
+            Tool::new(
+                "cargo_fmt",
+                "Run cargo fmt to format Rust code according to rustfmt rules",
+                fmt_schema,
+            ),
+            // Coverage tools
             Tool::new(
                 "get_coverage_summary",
                 "Get code coverage summary for the Rust project. Percentage = (total covered lines / total executable lines) * 100",
