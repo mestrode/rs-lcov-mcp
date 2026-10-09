@@ -3,6 +3,7 @@
 //! This module implements the MCP (Model Context Protocol) server that provides
 //! tools for analyzing Rust code coverage using cargo-llvm-cov.
 
+use crate::commands::build::{BuildParams, create_schema as create_build_schema, handle_build};
 use crate::commands::check::{CheckParams, create_schema as create_check_schema, handle_check};
 use crate::commands::clippy::{ClippyParams, create_schema as create_clippy_schema, handle_clippy};
 use crate::commands::coverage::{
@@ -146,6 +147,32 @@ impl ServerHandler for CoverageServer {
                     )),
                 }
             }
+            "cargo_build" => {
+                let args = request.arguments.clone().unwrap_or_default();
+                let params: BuildParams =
+                    serde_json::from_value(Value::Object(args)).map_err(|e| {
+                        McpError::invalid_params(
+                            format!("Invalid parameters for cargo_build: {}", e),
+                            None,
+                        )
+                    })?;
+
+                match handle_build(params).await {
+                    Ok(result) => {
+                        let structured = serde_json::to_value(result)
+                            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                        Ok(CallToolResponse::Complete(CallToolResult::structured(
+                            structured,
+                        )))
+                    }
+                    Err(e) => Ok(CallToolResponse::Complete(
+                        CallToolResult::structured_error(json!({
+                            "success": false,
+                            "error": e.to_string()
+                        })),
+                    )),
+                }
+            }
             "cargo_check" => {
                 let args = request.arguments.clone().unwrap_or_default();
                 let params: CheckParams =
@@ -268,6 +295,7 @@ impl ServerHandler for CoverageServer {
         let check_schema = create_check_schema();
         let clippy_schema = create_clippy_schema();
         let test_schema = create_test_schema();
+        let build_schema = create_build_schema();
 
         let tools = vec![
             // Cargo tools
@@ -290,6 +318,11 @@ impl ServerHandler for CoverageServer {
                 "cargo_test",
                 "Run cargo test to execute unit and integration tests",
                 test_schema,
+            ),
+            Tool::new(
+                "cargo_build",
+                "Run cargo build to compile the Rust project",
+                build_schema,
             ),
             // Coverage tools
             Tool::new(
