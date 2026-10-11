@@ -16,7 +16,9 @@ pub mod utils;
 
 pub use build::{BuildParams, BuildResult, create_schema as create_build_schema, handle_build};
 /// Re-export commonly used types from submodules
-pub use check::{CheckParams, CheckResult, create_schema as create_check_schema, handle_check};
+pub use check::{
+    CheckDiagnostic, CheckParams, CheckResult, create_schema as create_check_schema, handle_check,
+};
 pub use clean::{CleanParams, CleanResult, create_schema as create_clean_schema, handle_clean};
 pub use clippy::{
     ClippyParams, ClippyResult, create_schema as create_clippy_schema, handle_clippy,
