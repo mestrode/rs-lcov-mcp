@@ -18,6 +18,8 @@ pub struct FmtParams {
     pub verbose: bool,
     /// Specific package to format
     pub package: Option<String>,
+    /// Working directory for cargo command
+    pub working_dir: Option<String>,
 }
 
 /// Result of the cargo fmt tool
@@ -49,6 +51,10 @@ pub async fn handle_fmt(params: FmtParams) -> CommandResult<FmtResult> {
 
     if let Some(pkg) = params.package {
         cmd.args(["--package", &pkg]);
+    }
+
+    if let Some(ref dir) = params.working_dir {
+        cmd.current_dir(dir);
     }
 
     let output = cmd.output().map_err(|e| {
@@ -108,6 +114,13 @@ pub fn create_schema() -> serde_json::Map<String, serde_json::Value> {
         serde_json::Value::Object(create_string_property("Specific package to format")),
     );
 
+    properties.insert(
+        "working_dir".to_string(),
+        serde_json::Value::Object(create_string_property(
+            "Working directory for cargo command",
+        )),
+    );
+
     let mut schema = serde_json::Map::new();
     schema.insert(
         "type".to_string(),
@@ -137,13 +150,15 @@ mod tests {
         let json = json!({
             "check": true,
             "verbose": false,
-            "package": "my-package"
+            "package": "my-package",
+            "working_dir": "/path/to/dir"
         });
 
         let params: FmtParams = serde_json::from_value(json).unwrap();
         assert!(params.check);
         assert!(!params.verbose);
         assert_eq!(params.package, Some("my-package".to_string()));
+        assert_eq!(params.working_dir, Some("/path/to/dir".to_string()));
     }
 
     #[test]
@@ -154,6 +169,7 @@ mod tests {
         assert!(!params.check);
         assert!(!params.verbose);
         assert!(params.package.is_none());
+        assert!(params.working_dir.is_none());
     }
 
     #[test]
