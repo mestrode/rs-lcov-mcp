@@ -27,6 +27,8 @@ pub struct CheckParams {
     pub no_default_features: bool,
     /// List of features to enable
     pub features: Option<Vec<String>>,
+    /// Working directory for cargo command
+    pub working_dir: Option<String>,
 }
 
 /// A single diagnostic message from cargo check
@@ -96,6 +98,10 @@ pub async fn handle_check(params: CheckParams) -> CommandResult<CheckResult> {
     {
         cmd.arg("--features");
         cmd.arg(features.join(","));
+    }
+
+    if let Some(ref dir) = params.working_dir {
+        cmd.current_dir(dir);
     }
 
     let output = cmd.output().map_err(|e| {
@@ -323,6 +329,13 @@ pub fn create_schema() -> serde_json::Map<String, serde_json::Value> {
         )),
     );
 
+    properties.insert(
+        "working_dir".to_string(),
+        serde_json::Value::Object(create_string_property(
+            "Working directory for cargo command",
+        )),
+    );
+
     let mut schema = serde_json::Map::new();
     schema.insert(
         "type".to_string(),
@@ -355,7 +368,8 @@ mod tests {
             "all_targets": true,
             "all_features": false,
             "no_default_features": true,
-            "features": ["feat1", "feat2"]
+            "features": ["feat1", "feat2"],
+            "working_dir": "/path/to/dir"
         });
 
         let params: CheckParams = serde_json::from_value(json).unwrap();
@@ -368,6 +382,7 @@ mod tests {
             params.features,
             Some(vec!["feat1".to_string(), "feat2".to_string()])
         );
+        assert_eq!(params.working_dir, Some("/path/to/dir".to_string()));
     }
 
     #[test]
@@ -381,6 +396,7 @@ mod tests {
         assert!(!params.all_features);
         assert!(!params.no_default_features);
         assert!(params.features.is_none());
+        assert!(params.working_dir.is_none());
     }
 
     #[test]
