@@ -43,6 +43,8 @@ pub struct BuildParams {
     pub target: Option<String>,
     /// Directory for generated artifacts
     pub target_dir: Option<String>,
+    /// Working directory for cargo command
+    pub working_dir: Option<String>,
 }
 
 /// A single diagnostic message from cargo build
@@ -139,6 +141,10 @@ pub async fn handle_build(params: BuildParams) -> CommandResult<BuildResult> {
 
     if let Some(ref target_dir) = params.target_dir {
         cmd.args(["--target-dir", target_dir]);
+    }
+
+    if let Some(ref dir) = params.working_dir {
+        cmd.current_dir(dir);
     }
 
     cmd.arg("--message-format=json");
@@ -382,6 +388,13 @@ pub fn create_schema() -> serde_json::Map<String, serde_json::Value> {
         serde_json::Value::Object(create_string_property("Directory for generated artifacts")),
     );
 
+    properties.insert(
+        "working_dir".to_string(),
+        serde_json::Value::Object(create_string_property(
+            "Working directory for cargo command",
+        )),
+    );
+
     let mut schema = serde_json::Map::new();
     schema.insert(
         "type".to_string(),
@@ -420,7 +433,8 @@ mod tests {
             "locked": true,
             "frozen": false,
             "target": "x86_64-unknown-linux-gnu",
-            "target_dir": "./target"
+            "target_dir": "./target",
+            "working_dir": "/path/to/dir"
         });
 
         let params: BuildParams = serde_json::from_value(json).unwrap();
@@ -439,6 +453,7 @@ mod tests {
         assert!(!params.frozen);
         assert_eq!(params.target, Some("x86_64-unknown-linux-gnu".to_string()));
         assert_eq!(params.target_dir, Some("./target".to_string()));
+        assert_eq!(params.working_dir, Some("/path/to/dir".to_string()));
     }
 
     #[test]
@@ -458,6 +473,7 @@ mod tests {
         assert!(!params.frozen);
         assert!(params.target.is_none());
         assert!(params.target_dir.is_none());
+        assert!(params.working_dir.is_none());
     }
 
     #[test]
