@@ -140,9 +140,9 @@ pub async fn handle_test(params: TestParams) -> CommandResult<TestResult> {
     })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let _stderr = String::from_utf8_lossy(&output.stderr);
+    let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // Parse JSON output for diagnostics
+    // Parse JSON output for diagnostics (compiler messages go to stdout with --message-format=json)
     let diagnostics = parse_test_output_json(&stdout);
 
     // Count errors and warnings from diagnostics
@@ -169,8 +169,8 @@ pub async fn handle_test(params: TestParams) -> CommandResult<TestResult> {
         a_order.cmp(&b_order)
     });
 
-    // Parse test summary from stdout (test results are in stdout even with --message-format=json)
-    let test_summary = crate::commands::utils::parse_test_output(&stdout);
+    // Parse test summary from stderr (with --message-format=json, test results go to stderr)
+    let test_summary = crate::commands::utils::parse_test_output(&stderr);
 
     if !output.status.success() {
         return Ok(TestResult {
