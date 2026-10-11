@@ -4,10 +4,10 @@
 
 use crate::commands::utils::{
     create_array_property, create_bool_property, create_number_property, create_string_property,
-    parse_test_output,
 };
 use crate::error::CommandResult;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::process::Command;
 
 /// Parameters for the cargo test tool
@@ -41,6 +41,27 @@ pub struct TestParams {
     pub test_name: Option<String>,
 }
 
+/// A single diagnostic message from cargo test
+#[derive(Debug, Serialize, Clone)]
+pub struct TestDiagnostic {
+    /// Severity level: "error", "warning", "note", "help"
+    pub level: String,
+    /// Error code (e.g., "E0583")
+    pub code: Option<String>,
+    /// Short message
+    pub message: String,
+    /// File path where the diagnostic occurred
+    pub file: Option<String>,
+    /// Line number
+    pub line: Option<u32>,
+    /// Column number
+    pub column: Option<u32>,
+    /// Full rendered message
+    pub rendered: String,
+    /// Suggested replacement text
+    pub suggested_replacement: Option<String>,
+}
+
 /// Result of the cargo test tool
 #[derive(Debug, Serialize, Clone)]
 pub struct TestResult {
@@ -58,8 +79,8 @@ pub struct TestResult {
     pub measured: u32,
     /// Number of tests filtered out
     pub filtered_out: u32,
-    /// Command output
-    pub output: Option<String>,
+    /// Structured diagnostics (errors and warnings)
+    pub diagnostics: Vec<TestDiagnostic>,
     /// Error message if the command failed
     pub error: Option<String>,
 }
@@ -112,15 +133,44 @@ pub async fn handle_test(params: TestParams) -> CommandResult<TestResult> {
         cmd.args(["--test", &test_name]);
     }
 
+    cmd.arg("--message-format=json");
+
     let output = cmd.output().map_err(|e| {
         crate::error::CommandError::ExecutionFailed(format!("Failed to execute cargo test: {}", e))
     })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined_output = format!("{}\n{}", stdout, stderr);
 
-    let test_summary = parse_test_output(&combined_output);
+    // Parse JSON output for diagnostics
+    let diagnostics = parse_test_output_json(&stdout);
+
+    // Count errors and warnings from diagnostics
+    let errors = diagnostics.iter().filter(|d| d.level == "error").count() as u32;
+    let warnings = diagnostics.iter().filter(|d| d.level == "warning").count() as u32;
+
+    // Sort diagnostics: errors first, then warnings, then others
+    let mut diagnostics = diagnostics;
+    diagnostics.sort_by(|a, b| {
+        let a_order = match a.level.as_str() {
+            "error" => 0,
+            "warning" => 1,
+            "note" => 2,
+            "help" => 3,
+            _ => 4,
+        };
+        let b_order = match b.level.as_str() {
+            "error" => 0,
+            "warning" => 1,
+            "note" => 2,
+            "help" => 3,
+            _ => 4,
+        };
+        a_order.cmp(&b_order)
+    });
+
+    // Parse test summary from stderr (fallback for test results)
+    let test_summary = crate::commands::utils::parse_test_output(&stderr);
 
     if !output.status.success() {
         return Ok(TestResult {
@@ -131,8 +181,11 @@ pub async fn handle_test(params: TestParams) -> CommandResult<TestResult> {
             ignored: test_summary.ignored,
             measured: test_summary.measured,
             filtered_out: test_summary.filtered_out,
-            output: Some(stderr.into_owned()),
-            error: Some("cargo test failed".to_string()),
+            diagnostics,
+            error: Some(format!(
+                "cargo test failed with {} errors and {} warnings",
+                errors, warnings
+            )),
         });
     }
 
@@ -144,7 +197,7 @@ pub async fn handle_test(params: TestParams) -> CommandResult<TestResult> {
         ignored: test_summary.ignored,
         measured: test_summary.measured,
         filtered_out: test_summary.filtered_out,
-        output: Some(stdout.into_owned()),
+        diagnostics,
         error: None,
     })
 }
@@ -225,6 +278,114 @@ pub fn create_schema() -> serde_json::Map<String, serde_json::Value> {
     schema
 }
 
+/// Parse cargo test JSON output and extract diagnostics
+fn parse_test_output_json(stdout: &str) -> Vec<TestDiagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen: HashSet<(String, Option<u32>, Option<String>)> = HashSet::new();
+
+    for line in stdout.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        if let Ok(message) = serde_json::from_str::<serde_json::Value>(line)
+            && let Some(reason) = message.get("reason").and_then(|v| v.as_str())
+            && reason == "compiler-message"
+            && let Some(diag) = parse_compiler_message(&message)
+        {
+            let key = (
+                diag.file.clone().unwrap_or_default(),
+                diag.line,
+                diag.code.clone(),
+            );
+            if seen.insert(key) {
+                diagnostics.push(diag);
+            }
+        }
+    }
+
+    diagnostics
+}
+
+/// Parse a compiler-message JSON object into a TestDiagnostic
+fn parse_compiler_message(message: &serde_json::Value) -> Option<TestDiagnostic> {
+    let message_obj = message.get("message")?.as_object()?;
+
+    let level = message_obj.get("level")?.as_str()?.to_string();
+    let code = message_obj.get("code")?.as_str().map(String::from);
+    let message_text = message_obj.get("message")?.as_str().map(String::from);
+    let rendered = message_obj
+        .get("rendered")
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .or_else(|| message_text.clone());
+
+    let (file, line, column, suggested_replacement) = extract_spans(message);
+
+    Some(TestDiagnostic {
+        level,
+        code,
+        message: message_text.unwrap_or_default(),
+        file,
+        line,
+        column,
+        rendered: rendered.unwrap_or_default(),
+        suggested_replacement,
+    })
+}
+
+/// Extract file, line, column, and suggested replacement from message spans
+fn extract_spans(
+    message: &serde_json::Value,
+) -> (Option<String>, Option<u32>, Option<u32>, Option<String>) {
+    let spans = message.get("message").and_then(|m| m.get("spans"));
+
+    if let Some(spans_array) = spans.and_then(|s| s.as_array()) {
+        for span in spans_array {
+            if let Some(span_obj) = span.as_object() {
+                let is_primary = span_obj
+                    .get("is_primary")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+
+                if is_primary {
+                    let file_name = span_obj
+                        .get("file_name")
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+                    let line_start = span_obj
+                        .get("line_start")
+                        .and_then(|v| v.as_u64())
+                        .map(|n| n as u32);
+                    let column_start = span_obj
+                        .get("column_start")
+                        .and_then(|v| v.as_u64())
+                        .map(|n| n as u32);
+
+                    let suggested_replacement = span_obj
+                        .get("suggested_replacement")
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+
+                    return (file_name, line_start, column_start, suggested_replacement);
+                }
+            }
+        }
+    }
+
+    // Fallback: try to get from target
+    let target = message.get("target").and_then(|t| t.as_object());
+    if let Some(target_obj) = target {
+        let file_path = target_obj
+            .get("src_path")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+        return (file_path, None, None, None);
+    }
+
+    (None, None, None, None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,7 +449,7 @@ mod tests {
             ignored: 1,
             measured: 0,
             filtered_out: 0,
-            output: Some("Tests completed".to_string()),
+            diagnostics: vec![],
             error: None,
         };
 
@@ -298,7 +459,7 @@ mod tests {
         assert_eq!(json["tests_passed"], 8);
         assert_eq!(json["tests_failed"], 2);
         assert_eq!(json["ignored"], 1);
-        assert_eq!(json["output"], "Tests completed");
+        assert!(json["diagnostics"].as_array().unwrap().is_empty());
         assert!(json["error"].is_null());
     }
 
@@ -312,7 +473,7 @@ mod tests {
             ignored: 0,
             measured: 0,
             filtered_out: 0,
-            output: Some("Tests failed".to_string()),
+            diagnostics: vec![],
             error: Some("cargo test failed".to_string()),
         };
 
