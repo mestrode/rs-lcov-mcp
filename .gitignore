@@ -19,3 +19,6 @@
 
 # OS
 *.un~
+
+# OpenCode
+.opencode/
