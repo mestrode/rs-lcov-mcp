@@ -29,6 +29,8 @@ pub struct CleanParams {
     pub doc: bool,
     /// Target directory to clean
     pub target_dir: Option<String>,
+    /// Working directory for cargo command
+    pub working_dir: Option<String>,
 }
 
 /// Result of the cargo clean tool
@@ -75,6 +77,10 @@ pub async fn handle_clean(params: CleanParams) -> CommandResult<CleanResult> {
 
     if let Some(target_dir) = params.target_dir {
         cmd.args(["--target-dir", &target_dir]);
+    }
+
+    if let Some(ref dir) = params.working_dir {
+        cmd.current_dir(dir);
     }
 
     let output = cmd.output().map_err(|e| {
@@ -159,6 +165,13 @@ pub fn create_schema() -> serde_json::Map<String, serde_json::Value> {
         serde_json::Value::Object(create_string_property("Target directory to clean")),
     );
 
+    properties.insert(
+        "working_dir".to_string(),
+        serde_json::Value::Object(create_string_property(
+            "Working directory for cargo command",
+        )),
+    );
+
     let mut schema = serde_json::Map::new();
     schema.insert(
         "type".to_string(),
@@ -192,7 +205,8 @@ mod tests {
             "debug": false,
             "all_targets": true,
             "doc": true,
-            "target_dir": "./target"
+            "target_dir": "./target",
+            "working_dir": "/path/to/dir"
         });
 
         let params: CleanParams = serde_json::from_value(json).unwrap();
@@ -203,6 +217,7 @@ mod tests {
         assert!(params.all_targets);
         assert!(params.doc);
         assert_eq!(params.target_dir, Some("./target".to_string()));
+        assert_eq!(params.working_dir, Some("/path/to/dir".to_string()));
     }
 
     #[test]
@@ -217,6 +232,7 @@ mod tests {
         assert!(!params.all_targets);
         assert!(!params.doc);
         assert!(params.target_dir.is_none());
+        assert!(params.working_dir.is_none());
     }
 
     #[test]
