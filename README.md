@@ -1,17 +1,27 @@
 # rust-tools-mcp
 
 [![Coverage Status](https://img.shields.io/badge/coverage-78.44%25-brightgreen)](https://github.com/mestrode/rust-tools-mcp)
+[![Crates.io](https://img.shields.io/crates/v/rust-tools-mcp.svg)](https://crates.io/crates/rust-tools-mcp)
+[![License](https://img.shields.io/crates/l/rust-tools-mcp.svg)](https://github.com/mestrode/rust-tools-mcp/blob/main/LICENSE)
 
-An MCP (Model Context Protocol) server for Rust development tools. It provides cargo command execution (fmt, check, clippy, test, build) and code coverage analysis using [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov).
+An MCP (Model Context Protocol) server for Rust development tools. It provides cargo command execution (fmt, check, clippy, test, build, clean) and code coverage analysis using [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov).
 
 ## Features
 
 ### Cargo Commands
+All cargo commands support:
+- **Structured diagnostics**: JSON-based error/warning messages with file, line, column, and suggested fixes
+- **Deduplication**: Automatic removal of duplicate diagnostics
+- **Severity sorting**: Errors and warnings sorted by severity (errors > warnings > notes > help)
+- **Working directory**: Optional `working_dir` parameter to specify where cargo commands run
+
+Available commands:
 - **cargo_fmt**: Format Rust code according to rustfmt rules
 - **cargo_check**: Verify code compiles without running tests
 - **cargo_clippy**: Catch common mistakes and improve Rust code
 - **cargo_test**: Execute unit and integration tests
 - **cargo_build**: Compile your Rust project
+- **cargo_clean**: Remove generated artifacts
 
 ### Coverage Analysis (requires cargo-llvm-cov)
 - **Code Coverage Summary**: Get overall coverage percentage for your Rust project
@@ -276,6 +286,28 @@ at your option.
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request on GitHub.
+
+## 📝 Changelog
+
+### v0.4.0 (2026-10-11)
+- **⚠️ Breaking Changes**: Removed `output` field from all cargo tool result structs
+- **🆕 New Feature**: Added `working_dir` parameter to all cargo tools (check, build, test, clippy, clean, fmt)
+- **🔧 Enhancement**: Added JSON message format parsing for structured diagnostics in:
+  - `cargo_check` (already had it)
+  - `cargo_build` (new)
+  - `cargo_test` (new)
+  - `cargo_clippy` (new)
+  - `cargo_fmt` (new)
+- **🔧 Enhancement**: All tools now return structured diagnostics with:
+  - File path, line, column information
+  - Error codes and severity levels
+  - Suggested fixes
+  - Deduplication of identical diagnostics
+  - Sorting by severity (errors > warnings > notes > help)
+- **🐛 Bug Fix**: Removed `--workspace` parameter from `cargo_fmt` (not supported by cargo fmt)
+
+### v0.3.0
+- Initial release with basic cargo tools and coverage analysis
 
 ## Acknowledgments
 

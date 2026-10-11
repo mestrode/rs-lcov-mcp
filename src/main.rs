@@ -151,7 +151,7 @@ mod tests {
         let info = server.get_info();
 
         assert_eq!(info.server_info.name, "rs-cargo-tools");
-        assert_eq!(info.server_info.version, "0.3.0");
+        assert_eq!(info.server_info.version, "0.4.0");
     }
 
     #[test]
@@ -277,7 +277,7 @@ mod tests {
         let info = server.get_info();
 
         assert_eq!(info.server_info.name, "rs-cargo-tools");
-        assert_eq!(info.server_info.version, "0.3.0");
+        assert_eq!(info.server_info.version, "0.4.0");
     }
 
     #[test]
