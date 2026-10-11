@@ -40,8 +40,6 @@ pub struct CleanResult {
     pub success: bool,
     /// What was cleaned (debug, release, doc, etc.)
     pub cleaned: Vec<String>,
-    /// Command output
-    pub output: Option<String>,
     /// Error message if the command failed
     pub error: Option<String>,
 }
@@ -87,7 +85,7 @@ pub async fn handle_clean(params: CleanParams) -> CommandResult<CleanResult> {
         crate::error::CommandError::ExecutionFailed(format!("Failed to execute cargo clean: {}", e))
     })?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let _stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     // Determine what was cleaned based on parameters
@@ -113,7 +111,6 @@ pub async fn handle_clean(params: CleanParams) -> CommandResult<CleanResult> {
         return Ok(CleanResult {
             success: false,
             cleaned,
-            output: Some(stderr_str.clone()),
             error: Some(format!("cargo clean failed: {}", stderr_str)),
         });
     }
@@ -121,7 +118,6 @@ pub async fn handle_clean(params: CleanParams) -> CommandResult<CleanResult> {
     Ok(CleanResult {
         success: true,
         cleaned,
-        output: Some(stdout.into_owned()),
         error: None,
     })
 }
@@ -240,14 +236,12 @@ mod tests {
         let result = CleanResult {
             success: true,
             cleaned: vec!["release".to_string(), "debug".to_string()],
-            output: Some("Cleaned artifacts".to_string()),
             error: None,
         };
 
         let json = serde_json::to_value(&result).unwrap();
         assert!(json["success"].as_bool().unwrap());
         assert_eq!(json["cleaned"].as_array().unwrap().len(), 2);
-        assert_eq!(json["output"], "Cleaned artifacts");
         assert!(json["error"].is_null());
     }
 
@@ -256,7 +250,6 @@ mod tests {
         let result = CleanResult {
             success: false,
             cleaned: vec![],
-            output: Some("Clean failed".to_string()),
             error: Some("cargo clean failed".to_string()),
         };
 
