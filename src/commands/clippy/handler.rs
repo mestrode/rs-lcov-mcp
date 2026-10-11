@@ -31,6 +31,8 @@ pub struct ClippyParams {
     pub warnings_as_errors: bool,
     /// List of lints to enable or configure
     pub lints: Option<Vec<String>>,
+    /// Working directory for cargo command
+    pub working_dir: Option<String>,
 }
 
 /// Result of the cargo clippy tool
@@ -94,6 +96,10 @@ pub async fn handle_clippy(params: ClippyParams) -> CommandResult<ClippyResult> 
         cmd.arg("--");
         cmd.arg("-W");
         cmd.arg(lints.join(","));
+    }
+
+    if let Some(ref dir) = params.working_dir {
+        cmd.current_dir(dir);
     }
 
     let output = cmd.output().map_err(|e| {
@@ -212,6 +218,13 @@ pub fn create_schema() -> serde_json::Map<String, serde_json::Value> {
         )),
     );
 
+    properties.insert(
+        "working_dir".to_string(),
+        serde_json::Value::Object(create_string_property(
+            "Working directory for cargo command",
+        )),
+    );
+
     let mut schema = serde_json::Map::new();
     schema.insert(
         "type".to_string(),
@@ -246,7 +259,8 @@ mod tests {
             "no_default_features": true,
             "features": ["feat1", "feat2"],
             "warnings_as_errors": true,
-            "lints": ["clippy::pedantic", "clippy::nursery"]
+            "lints": ["clippy::pedantic", "clippy::nursery"],
+            "working_dir": "/path/to/dir"
         });
 
         let params: ClippyParams = serde_json::from_value(json).unwrap();
@@ -267,6 +281,7 @@ mod tests {
                 "clippy::nursery".to_string()
             ])
         );
+        assert_eq!(params.working_dir, Some("/path/to/dir".to_string()));
     }
 
     #[test]
@@ -282,6 +297,7 @@ mod tests {
         assert!(params.features.is_none());
         assert!(!params.warnings_as_errors);
         assert!(params.lints.is_none());
+        assert!(params.working_dir.is_none());
     }
 
     #[test]
