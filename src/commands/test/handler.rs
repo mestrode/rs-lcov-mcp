@@ -39,6 +39,8 @@ pub struct TestParams {
     pub test_threads: Option<usize>,
     /// Name of specific test to run
     pub test_name: Option<String>,
+    /// Working directory for cargo command
+    pub working_dir: Option<String>,
 }
 
 /// A single diagnostic message from cargo test
@@ -131,6 +133,10 @@ pub async fn handle_test(params: TestParams) -> CommandResult<TestResult> {
 
     if let Some(test_name) = params.test_name {
         cmd.args(["--test", &test_name]);
+    }
+
+    if let Some(ref dir) = params.working_dir {
+        cmd.current_dir(dir);
     }
 
     cmd.arg("--message-format=json");
@@ -257,6 +263,13 @@ pub fn create_schema() -> serde_json::Map<String, serde_json::Value> {
     properties.insert(
         "test_name".to_string(),
         serde_json::Value::Object(create_string_property("Name of specific test to run")),
+    );
+
+    properties.insert(
+        "working_dir".to_string(),
+        serde_json::Value::Object(create_string_property(
+            "Working directory for cargo command",
+        )),
     );
 
     let mut schema = serde_json::Map::new();
@@ -403,7 +416,8 @@ mod tests {
             "no_run": false,
             "quiet": true,
             "test_threads": 4,
-            "test_name": "my_test"
+            "test_name": "my_test",
+            "working_dir": "/path/to/dir"
         });
 
         let params: TestParams = serde_json::from_value(json).unwrap();
@@ -420,6 +434,7 @@ mod tests {
         assert!(params.quiet);
         assert_eq!(params.test_threads, Some(4));
         assert_eq!(params.test_name, Some("my_test".to_string()));
+        assert_eq!(params.working_dir, Some("/path/to/dir".to_string()));
     }
 
     #[test]
@@ -437,6 +452,7 @@ mod tests {
         assert!(!params.quiet);
         assert!(params.test_threads.is_none());
         assert!(params.test_name.is_none());
+        assert!(params.working_dir.is_none());
     }
 
     #[test]
